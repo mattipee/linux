@@ -35,16 +35,16 @@
 #include <linux/fixp-arith.h>
 #include <media/v4l2-ctrls.h>
 
-#define OV534_REG_ADDRESS	0xf1	/* sensor address */
-#define OV534_REG_SUBADDR	0xf2
-#define OV534_REG_WRITE		0xf3
-#define OV534_REG_READ		0xf4
-#define OV534_REG_OPERATION	0xf5
-#define OV534_REG_STATUS	0xf6
+#define OV534_REG_ADDRESS   0xf1    /* sensor address */
+#define OV534_REG_SUBADDR   0xf2
+#define OV534_REG_WRITE     0xf3
+#define OV534_REG_READ      0xf4
+#define OV534_REG_OPERATION 0xf5
+#define OV534_REG_STATUS    0xf6
 
-#define OV534_OP_WRITE_3	0x37
-#define OV534_OP_WRITE_2	0x33
-#define OV534_OP_READ_2		0xf9
+#define OV534_OP_WRITE_3    0x37
+#define OV534_OP_WRITE_2    0x33
+#define OV534_OP_READ_2     0xf9
 
 #define CTRL_TIMEOUT 500
 #define DEFAULT_FRAME_RATE 30
@@ -55,37 +55,38 @@ MODULE_LICENSE("GPL");
 
 /* specific webcam descriptor */
 struct sd {
-	struct gspca_dev gspca_dev;	/* !! must be the first item */
+    struct gspca_dev gspca_dev; /* !! must be the first item */
 
-	struct v4l2_ctrl_handler ctrl_handler;
-	struct v4l2_ctrl *hue;
-	struct v4l2_ctrl *saturation;
-	struct v4l2_ctrl *brightness;
-	struct v4l2_ctrl *contrast;
-	struct { /* gain control cluster */
-		struct v4l2_ctrl *autogain;
-		struct v4l2_ctrl *gain;
-	};
-	struct v4l2_ctrl *autowhitebalance;
-	struct { /* exposure control cluster */
-		struct v4l2_ctrl *autoexposure;
-		struct v4l2_ctrl *exposure;
-	};
-	struct v4l2_ctrl *sharpness;
-	struct v4l2_ctrl *hflip;
-	struct v4l2_ctrl *vflip;
-	struct v4l2_ctrl *plfreq;
+    struct v4l2_ctrl_handler ctrl_handler;
+    struct v4l2_ctrl *hue;
+    struct v4l2_ctrl *saturation;
+    struct v4l2_ctrl *brightness;
+    struct v4l2_ctrl *contrast;
+    struct { /* gain control cluster */
+        struct v4l2_ctrl *autogain;
+        struct v4l2_ctrl *gain;
+    };
+    struct v4l2_ctrl *autowhitebalance;
+    struct { /* exposure control cluster */
+        struct v4l2_ctrl *autoexposure;
+        struct v4l2_ctrl *exposure;
+    };
+    struct v4l2_ctrl *sharpness;
+    struct v4l2_ctrl *hflip;
+    struct v4l2_ctrl *vflip;
+    struct v4l2_ctrl *plfreq;
+    struct v4l2_ctrl *gamma;
 
-	__u32 last_pts;
-	u16 last_fid;
-	u8 frame_rate;
+    __u32 last_pts;
+    u16 last_fid;
+    u8 frame_rate;
 
-	u8 sensor;
+    u8 sensor;
 };
 enum sensors {
-	SENSOR_OV767x,
-	SENSOR_OV772x,
-	NSENSORS
+    SENSOR_OV767x,
+    SENSOR_OV772x,
+    NSENSORS
 };
 
 static int sd_start(struct gspca_dev *gspca_dev);
@@ -93,1432 +94,1712 @@ static void sd_stopN(struct gspca_dev *gspca_dev);
 
 
 static const struct v4l2_pix_format ov772x_mode[] = {
-	{320, 240, V4L2_PIX_FMT_YUYV, V4L2_FIELD_NONE,
-	 .bytesperline = 320 * 2,
-	 .sizeimage = 320 * 240 * 2,
-	 .colorspace = V4L2_COLORSPACE_SRGB,
-	 .priv = 1},
-	{640, 480, V4L2_PIX_FMT_YUYV, V4L2_FIELD_NONE,
-	 .bytesperline = 640 * 2,
-	 .sizeimage = 640 * 480 * 2,
-	 .colorspace = V4L2_COLORSPACE_SRGB,
-	 .priv = 0},
+    {320, 240, V4L2_PIX_FMT_YUYV, V4L2_FIELD_NONE,
+     .bytesperline = 320 * 2,
+     .sizeimage = 320 * 240 * 2,
+     .colorspace = V4L2_COLORSPACE_SRGB,
+     .priv = 1},
+    {640, 480, V4L2_PIX_FMT_YUYV, V4L2_FIELD_NONE,
+     .bytesperline = 640 * 2,
+     .sizeimage = 640 * 480 * 2,
+     .colorspace = V4L2_COLORSPACE_SRGB,
+     .priv = 0},
 };
 static const struct v4l2_pix_format ov767x_mode[] = {
-	{320, 240, V4L2_PIX_FMT_JPEG, V4L2_FIELD_NONE,
-		.bytesperline = 320,
-		.sizeimage = 320 * 240 * 3 / 8 + 590,
-		.colorspace = V4L2_COLORSPACE_JPEG},
-	{640, 480, V4L2_PIX_FMT_JPEG, V4L2_FIELD_NONE,
-		.bytesperline = 640,
-		.sizeimage = 640 * 480 * 3 / 8 + 590,
-		.colorspace = V4L2_COLORSPACE_JPEG},
+    {320, 240, V4L2_PIX_FMT_JPEG, V4L2_FIELD_NONE,
+        .bytesperline = 320,
+        .sizeimage = 320 * 240 * 3 / 8 + 590,
+        .colorspace = V4L2_COLORSPACE_JPEG},
+    {640, 480, V4L2_PIX_FMT_JPEG, V4L2_FIELD_NONE,
+        .bytesperline = 640,
+        .sizeimage = 640 * 480 * 3 / 8 + 590,
+        .colorspace = V4L2_COLORSPACE_JPEG},
 };
 
 static const u8 qvga_rates[] = {187, 150, 137, 125, 100, 75, 60, 50, 37, 30};
 static const u8 vga_rates[] = {60, 50, 40, 30, 15};
 
 static const struct framerates ov772x_framerates[] = {
-	{ /* 320x240 */
-		.rates = qvga_rates,
-		.nrates = ARRAY_SIZE(qvga_rates),
-	},
-	{ /* 640x480 */
-		.rates = vga_rates,
-		.nrates = ARRAY_SIZE(vga_rates),
-	},
+    { /* 320x240 */
+        .rates = qvga_rates,
+        .nrates = ARRAY_SIZE(qvga_rates),
+    },
+    { /* 640x480 */
+        .rates = vga_rates,
+        .nrates = ARRAY_SIZE(vga_rates),
+    },
 };
 
 struct reg_array {
-	const u8 (*val)[2];
-	int len;
+    const u8 (*val)[2];
+    int len;
 };
 
 static const u8 bridge_init_767x[][2] = {
 /* comments from the ms-win file apollo7670.set */
 /* str1 */
-	{0xf1, 0x42},
-	{0x88, 0xf8},
-	{0x89, 0xff},
-	{0x76, 0x03},
-	{0x92, 0x03},
-	{0x95, 0x10},
-	{0xe2, 0x00},
-	{0xe7, 0x3e},
-	{0x8d, 0x1c},
-	{0x8e, 0x00},
-	{0x8f, 0x00},
-	{0x1f, 0x00},
-	{0xc3, 0xf9},
-	{0x89, 0xff},
-	{0x88, 0xf8},
-	{0x76, 0x03},
-	{0x92, 0x01},
-	{0x93, 0x18},
-	{0x1c, 0x00},
-	{0x1d, 0x48},
-	{0x1d, 0x00},
-	{0x1d, 0xff},
-	{0x1d, 0x02},
-	{0x1d, 0x58},
-	{0x1d, 0x00},
-	{0x1c, 0x0a},
-	{0x1d, 0x0a},
-	{0x1d, 0x0e},
-	{0xc0, 0x50},	/* HSize 640 */
-	{0xc1, 0x3c},	/* VSize 480 */
-	{0x34, 0x05},	/* enable Audio Suspend mode */
-	{0xc2, 0x0c},	/* Input YUV */
-	{0xc3, 0xf9},	/* enable PRE */
-	{0x34, 0x05},	/* enable Audio Suspend mode */
-	{0xe7, 0x2e},	/* this solves failure of "SuspendResumeTest" */
-	{0x31, 0xf9},	/* enable 1.8V Suspend */
-	{0x35, 0x02},	/* turn on JPEG */
-	{0xd9, 0x10},
-	{0x25, 0x42},	/* GPIO[8]:Input */
-	{0x94, 0x11},	/* If the default setting is loaded when
-			 * system boots up, this flag is closed here */
+    {0xf1, 0x42},
+    {0x88, 0xf8},
+    {0x89, 0xff},
+    {0x76, 0x03},
+    {0x92, 0x03},
+    {0x95, 0x10},
+    {0xe2, 0x00},
+    {0xe7, 0x3e},
+    {0x8d, 0x1c},
+    {0x8e, 0x00},
+    {0x8f, 0x00},
+    {0x1f, 0x00},
+    {0xc3, 0xf9},
+    {0x89, 0xff},
+    {0x88, 0xf8},
+    {0x76, 0x03},
+    {0x92, 0x01},
+    {0x93, 0x18},
+    {0x1c, 0x00},
+    {0x1d, 0x48},
+    {0x1d, 0x00},
+    {0x1d, 0xff},
+    {0x1d, 0x02},
+    {0x1d, 0x58},
+    {0x1d, 0x00},
+    {0x1c, 0x0a},
+    {0x1d, 0x0a},
+    {0x1d, 0x0e},
+    {0xc0, 0x50},   /* HSize 640 */
+    {0xc1, 0x3c},   /* VSize 480 */
+    {0x34, 0x05},   /* enable Audio Suspend mode */
+    {0xc2, 0x0c},   /* Input YUV */
+    {0xc3, 0xf9},   /* enable PRE */
+    {0x34, 0x05},   /* enable Audio Suspend mode */
+    {0xe7, 0x2e},   /* this solves failure of "SuspendResumeTest" */
+    {0x31, 0xf9},   /* enable 1.8V Suspend */
+    {0x35, 0x02},   /* turn on JPEG */
+    {0xd9, 0x10},
+    {0x25, 0x42},   /* GPIO[8]:Input */
+    {0x94, 0x11},   /* If the default setting is loaded when
+             * system boots up, this flag is closed here */
 };
 static const u8 sensor_init_767x[][2] = {
-	{0x12, 0x80},
-	{0x11, 0x03},
-	{0x3a, 0x04},
-	{0x12, 0x00},
-	{0x17, 0x13},
-	{0x18, 0x01},
-	{0x32, 0xb6},
-	{0x19, 0x02},
-	{0x1a, 0x7a},
-	{0x03, 0x0a},
-	{0x0c, 0x00},
-	{0x3e, 0x00},
-	{0x70, 0x3a},
-	{0x71, 0x35},
-	{0x72, 0x11},
-	{0x73, 0xf0},
-	{0xa2, 0x02},
-	{0x7a, 0x2a},	/* set Gamma=1.6 below */
-	{0x7b, 0x12},
-	{0x7c, 0x1d},
-	{0x7d, 0x2d},
-	{0x7e, 0x45},
-	{0x7f, 0x50},
-	{0x80, 0x59},
-	{0x81, 0x62},
-	{0x82, 0x6b},
-	{0x83, 0x73},
-	{0x84, 0x7b},
-	{0x85, 0x8a},
-	{0x86, 0x98},
-	{0x87, 0xb2},
-	{0x88, 0xca},
-	{0x89, 0xe0},
-	{0x13, 0xe0},
-	{0x00, 0x00},
-	{0x10, 0x00},
-	{0x0d, 0x40},
-	{0x14, 0x38},	/* gain max 16x */
-	{0xa5, 0x05},
-	{0xab, 0x07},
-	{0x24, 0x95},
-	{0x25, 0x33},
-	{0x26, 0xe3},
-	{0x9f, 0x78},
-	{0xa0, 0x68},
-	{0xa1, 0x03},
-	{0xa6, 0xd8},
-	{0xa7, 0xd8},
-	{0xa8, 0xf0},
-	{0xa9, 0x90},
-	{0xaa, 0x94},
-	{0x13, 0xe5},
-	{0x0e, 0x61},
-	{0x0f, 0x4b},
-	{0x16, 0x02},
-	{0x21, 0x02},
-	{0x22, 0x91},
-	{0x29, 0x07},
-	{0x33, 0x0b},
-	{0x35, 0x0b},
-	{0x37, 0x1d},
-	{0x38, 0x71},
-	{0x39, 0x2a},
-	{0x3c, 0x78},
-	{0x4d, 0x40},
-	{0x4e, 0x20},
-	{0x69, 0x00},
-	{0x6b, 0x4a},
-	{0x74, 0x10},
-	{0x8d, 0x4f},
-	{0x8e, 0x00},
-	{0x8f, 0x00},
-	{0x90, 0x00},
-	{0x91, 0x00},
-	{0x96, 0x00},
-	{0x9a, 0x80},
-	{0xb0, 0x84},
-	{0xb1, 0x0c},
-	{0xb2, 0x0e},
-	{0xb3, 0x82},
-	{0xb8, 0x0a},
-	{0x43, 0x0a},
-	{0x44, 0xf0},
-	{0x45, 0x34},
-	{0x46, 0x58},
-	{0x47, 0x28},
-	{0x48, 0x3a},
-	{0x59, 0x88},
-	{0x5a, 0x88},
-	{0x5b, 0x44},
-	{0x5c, 0x67},
-	{0x5d, 0x49},
-	{0x5e, 0x0e},
-	{0x6c, 0x0a},
-	{0x6d, 0x55},
-	{0x6e, 0x11},
-	{0x6f, 0x9f},
-	{0x6a, 0x40},
-	{0x01, 0x40},
-	{0x02, 0x40},
-	{0x13, 0xe7},
-	{0x4f, 0x80},
-	{0x50, 0x80},
-	{0x51, 0x00},
-	{0x52, 0x22},
-	{0x53, 0x5e},
-	{0x54, 0x80},
-	{0x58, 0x9e},
-	{0x41, 0x08},
-	{0x3f, 0x00},
-	{0x75, 0x04},
-	{0x76, 0xe1},
-	{0x4c, 0x00},
-	{0x77, 0x01},
-	{0x3d, 0xc2},
-	{0x4b, 0x09},
-	{0xc9, 0x60},
-	{0x41, 0x38},	/* jfm: auto sharpness + auto de-noise  */
-	{0x56, 0x40},
-	{0x34, 0x11},
-	{0x3b, 0xc2},
-	{0xa4, 0x8a},	/* Night mode trigger point */
-	{0x96, 0x00},
-	{0x97, 0x30},
-	{0x98, 0x20},
-	{0x99, 0x20},
-	{0x9a, 0x84},
-	{0x9b, 0x29},
-	{0x9c, 0x03},
-	{0x9d, 0x4c},
-	{0x9e, 0x3f},
-	{0x78, 0x04},
-	{0x79, 0x01},
-	{0xc8, 0xf0},
-	{0x79, 0x0f},
-	{0xc8, 0x00},
-	{0x79, 0x10},
-	{0xc8, 0x7e},
-	{0x79, 0x0a},
-	{0xc8, 0x80},
-	{0x79, 0x0b},
-	{0xc8, 0x01},
-	{0x79, 0x0c},
-	{0xc8, 0x0f},
-	{0x79, 0x0d},
-	{0xc8, 0x20},
-	{0x79, 0x09},
-	{0xc8, 0x80},
-	{0x79, 0x02},
-	{0xc8, 0xc0},
-	{0x79, 0x03},
-	{0xc8, 0x20},
-	{0x79, 0x26},
+    {0x12, 0x80},
+    {0x11, 0x03},
+    {0x3a, 0x04},
+    {0x12, 0x00},
+    {0x17, 0x13},
+    {0x18, 0x01},
+    {0x32, 0xb6},
+    {0x19, 0x02},
+    {0x1a, 0x7a},
+    {0x03, 0x0a},
+    {0x0c, 0x00},
+    {0x3e, 0x00},
+    {0x70, 0x3a},
+    {0x71, 0x35},
+    {0x72, 0x11},
+    {0x73, 0xf0},
+    {0xa2, 0x02},
+    {0x7a, 0x2a},   /* set Gamma=1.6 below */
+    {0x7b, 0x12},
+    {0x7c, 0x1d},
+    {0x7d, 0x2d},
+    {0x7e, 0x45},
+    {0x7f, 0x50},
+    {0x80, 0x59},
+    {0x81, 0x62},
+    {0x82, 0x6b},
+    {0x83, 0x73},
+    {0x84, 0x7b},
+    {0x85, 0x8a},
+    {0x86, 0x98},
+    {0x87, 0xb2},
+    {0x88, 0xca},
+    {0x89, 0xe0},
+    {0x13, 0xe0},
+    {0x00, 0x00},
+    {0x10, 0x00},
+    {0x0d, 0x40},
+    {0x14, 0x38},   /* gain max 16x */
+    {0xa5, 0x05},
+    {0xab, 0x07},
+    {0x24, 0x95},
+    {0x25, 0x33},
+    {0x26, 0xe3},
+    {0x9f, 0x78},
+    {0xa0, 0x68},
+    {0xa1, 0x03},
+    {0xa6, 0xd8},
+    {0xa7, 0xd8},
+    {0xa8, 0xf0},
+    {0xa9, 0x90},
+    {0xaa, 0x94},
+    {0x13, 0xe5},
+    {0x0e, 0x61},
+    {0x0f, 0x4b},
+    {0x16, 0x02},
+    {0x21, 0x02},
+    {0x22, 0x91},
+    {0x29, 0x07},
+    {0x33, 0x0b},
+    {0x35, 0x0b},
+    {0x37, 0x1d},
+    {0x38, 0x71},
+    {0x39, 0x2a},
+    {0x3c, 0x78},
+    {0x4d, 0x40},
+    {0x4e, 0x20},
+    {0x69, 0x00},
+    {0x6b, 0x4a},
+    {0x74, 0x10},
+    {0x8d, 0x4f},
+    {0x8e, 0x00},
+    {0x8f, 0x00},
+    {0x90, 0x00},
+    {0x91, 0x00},
+    {0x96, 0x00},
+    {0x9a, 0x80},
+    {0xb0, 0x84},
+    {0xb1, 0x0c},
+    {0xb2, 0x0e},
+    {0xb3, 0x82},
+    {0xb8, 0x0a},
+    {0x43, 0x0a},
+    {0x44, 0xf0},
+    {0x45, 0x34},
+    {0x46, 0x58},
+    {0x47, 0x28},
+    {0x48, 0x3a},
+    {0x59, 0x88},
+    {0x5a, 0x88},
+    {0x5b, 0x44},
+    {0x5c, 0x67},
+    {0x5d, 0x49},
+    {0x5e, 0x0e},
+    {0x6c, 0x0a},
+    {0x6d, 0x55},
+    {0x6e, 0x11},
+    {0x6f, 0x9f},
+    {0x6a, 0x40},
+    {0x01, 0x40},
+    {0x02, 0x40},
+    {0x13, 0xe7},
+    {0x4f, 0x80},
+    {0x50, 0x80},
+    {0x51, 0x00},
+    {0x52, 0x22},
+    {0x53, 0x5e},
+    {0x54, 0x80},
+    {0x58, 0x9e},
+    {0x41, 0x08},
+    {0x3f, 0x00},
+    {0x75, 0x04},
+    {0x76, 0xe1},
+    {0x4c, 0x00},
+    {0x77, 0x01},
+    {0x3d, 0xc2},
+    {0x4b, 0x09},
+    {0xc9, 0x60},
+    {0x41, 0x38},   /* jfm: auto sharpness + auto de-noise  */
+    {0x56, 0x40},
+    {0x34, 0x11},
+    {0x3b, 0xc2},
+    {0xa4, 0x8a},   /* Night mode trigger point */
+    {0x96, 0x00},
+    {0x97, 0x30},
+    {0x98, 0x20},
+    {0x99, 0x20},
+    {0x9a, 0x84},
+    {0x9b, 0x29},
+    {0x9c, 0x03},
+    {0x9d, 0x4c},
+    {0x9e, 0x3f},
+    {0x78, 0x04},
+    {0x79, 0x01},
+    {0xc8, 0xf0},
+    {0x79, 0x0f},
+    {0xc8, 0x00},
+    {0x79, 0x10},
+    {0xc8, 0x7e},
+    {0x79, 0x0a},
+    {0xc8, 0x80},
+    {0x79, 0x0b},
+    {0xc8, 0x01},
+    {0x79, 0x0c},
+    {0xc8, 0x0f},
+    {0x79, 0x0d},
+    {0xc8, 0x20},
+    {0x79, 0x09},
+    {0xc8, 0x80},
+    {0x79, 0x02},
+    {0xc8, 0xc0},
+    {0x79, 0x03},
+    {0xc8, 0x20},
+    {0x79, 0x26},
 };
 static const u8 bridge_start_vga_767x[][2] = {
 /* str59 JPG */
-	{0x94, 0xaa},
-	{0xf1, 0x42},
-	{0xe5, 0x04},
-	{0xc0, 0x50},
-	{0xc1, 0x3c},
-	{0xc2, 0x0c},
-	{0x35, 0x02},	/* turn on JPEG */
-	{0xd9, 0x10},
-	{0xda, 0x00},	/* for higher clock rate(30fps) */
-	{0x34, 0x05},	/* enable Audio Suspend mode */
-	{0xc3, 0xf9},	/* enable PRE */
-	{0x8c, 0x00},	/* CIF VSize LSB[2:0] */
-	{0x8d, 0x1c},	/* output YUV */
-/*	{0x34, 0x05},	 * enable Audio Suspend mode (?) */
-	{0x50, 0x00},	/* H/V divider=0 */
-	{0x51, 0xa0},	/* input H=640/4 */
-	{0x52, 0x3c},	/* input V=480/4 */
-	{0x53, 0x00},	/* offset X=0 */
-	{0x54, 0x00},	/* offset Y=0 */
-	{0x55, 0x00},	/* H/V size[8]=0 */
-	{0x57, 0x00},	/* H-size[9]=0 */
-	{0x5c, 0x00},	/* output size[9:8]=0 */
-	{0x5a, 0xa0},	/* output H=640/4 */
-	{0x5b, 0x78},	/* output V=480/4 */
-	{0x1c, 0x0a},
-	{0x1d, 0x0a},
-	{0x94, 0x11},
+    {0x94, 0xaa},
+    {0xf1, 0x42},
+    {0xe5, 0x04},
+    {0xc0, 0x50},
+    {0xc1, 0x3c},
+    {0xc2, 0x0c},
+    {0x35, 0x02},   /* turn on JPEG */
+    {0xd9, 0x10},
+    {0xda, 0x00},   /* for higher clock rate(30fps) */
+    {0x34, 0x05},   /* enable Audio Suspend mode */
+    {0xc3, 0xf9},   /* enable PRE */
+    {0x8c, 0x00},   /* CIF VSize LSB[2:0] */
+    {0x8d, 0x1c},   /* output YUV */
+/*  {0x34, 0x05},    * enable Audio Suspend mode (?) */
+    {0x50, 0x00},   /* H/V divider=0 */
+    {0x51, 0xa0},   /* input H=640/4 */
+    {0x52, 0x3c},   /* input V=480/4 */
+    {0x53, 0x00},   /* offset X=0 */
+    {0x54, 0x00},   /* offset Y=0 */
+    {0x55, 0x00},   /* H/V size[8]=0 */
+    {0x57, 0x00},   /* H-size[9]=0 */
+    {0x5c, 0x00},   /* output size[9:8]=0 */
+    {0x5a, 0xa0},   /* output H=640/4 */
+    {0x5b, 0x78},   /* output V=480/4 */
+    {0x1c, 0x0a},
+    {0x1d, 0x0a},
+    {0x94, 0x11},
 };
 static const u8 sensor_start_vga_767x[][2] = {
-	{0x11, 0x01},
-	{0x1e, 0x04},
-	{0x19, 0x02},
-	{0x1a, 0x7a},
+    {0x11, 0x01},
+    {0x1e, 0x04},
+    {0x19, 0x02},
+    {0x1a, 0x7a},
 };
 static const u8 bridge_start_qvga_767x[][2] = {
 /* str86 JPG */
-	{0x94, 0xaa},
-	{0xf1, 0x42},
-	{0xe5, 0x04},
-	{0xc0, 0x80},
-	{0xc1, 0x60},
-	{0xc2, 0x0c},
-	{0x35, 0x02},	/* turn on JPEG */
-	{0xd9, 0x10},
-	{0xc0, 0x50},	/* CIF HSize 640 */
-	{0xc1, 0x3c},	/* CIF VSize 480 */
-	{0x8c, 0x00},	/* CIF VSize LSB[2:0] */
-	{0x8d, 0x1c},	/* output YUV */
-	{0x34, 0x05},	/* enable Audio Suspend mode */
-	{0xc2, 0x4c},	/* output YUV and Enable DCW */
-	{0xc3, 0xf9},	/* enable PRE */
-	{0x1c, 0x00},	/* indirect addressing */
-	{0x1d, 0x48},	/* output YUV422 */
-	{0x50, 0x89},	/* H/V divider=/2; plus DCW AVG */
-	{0x51, 0xa0},	/* DCW input H=640/4 */
-	{0x52, 0x78},	/* DCW input V=480/4 */
-	{0x53, 0x00},	/* offset X=0 */
-	{0x54, 0x00},	/* offset Y=0 */
-	{0x55, 0x00},	/* H/V size[8]=0 */
-	{0x57, 0x00},	/* H-size[9]=0 */
-	{0x5c, 0x00},	/* DCW output size[9:8]=0 */
-	{0x5a, 0x50},	/* DCW output H=320/4 */
-	{0x5b, 0x3c},	/* DCW output V=240/4 */
-	{0x1c, 0x0a},
-	{0x1d, 0x0a},
-	{0x94, 0x11},
+    {0x94, 0xaa},
+    {0xf1, 0x42},
+    {0xe5, 0x04},
+    {0xc0, 0x80},
+    {0xc1, 0x60},
+    {0xc2, 0x0c},
+    {0x35, 0x02},   /* turn on JPEG */
+    {0xd9, 0x10},
+    {0xc0, 0x50},   /* CIF HSize 640 */
+    {0xc1, 0x3c},   /* CIF VSize 480 */
+    {0x8c, 0x00},   /* CIF VSize LSB[2:0] */
+    {0x8d, 0x1c},   /* output YUV */
+    {0x34, 0x05},   /* enable Audio Suspend mode */
+    {0xc2, 0x4c},   /* output YUV and Enable DCW */
+    {0xc3, 0xf9},   /* enable PRE */
+    {0x1c, 0x00},   /* indirect addressing */
+    {0x1d, 0x48},   /* output YUV422 */
+    {0x50, 0x89},   /* H/V divider=/2; plus DCW AVG */
+    {0x51, 0xa0},   /* DCW input H=640/4 */
+    {0x52, 0x78},   /* DCW input V=480/4 */
+    {0x53, 0x00},   /* offset X=0 */
+    {0x54, 0x00},   /* offset Y=0 */
+    {0x55, 0x00},   /* H/V size[8]=0 */
+    {0x57, 0x00},   /* H-size[9]=0 */
+    {0x5c, 0x00},   /* DCW output size[9:8]=0 */
+    {0x5a, 0x50},   /* DCW output H=320/4 */
+    {0x5b, 0x3c},   /* DCW output V=240/4 */
+    {0x1c, 0x0a},
+    {0x1d, 0x0a},
+    {0x94, 0x11},
 };
 static const u8 sensor_start_qvga_767x[][2] = {
-	{0x11, 0x01},
-	{0x1e, 0x04},
-	{0x19, 0x02},
-	{0x1a, 0x7a},
+    {0x11, 0x01},
+    {0x1e, 0x04},
+    {0x19, 0x02},
+    {0x1a, 0x7a},
 };
 
 static const u8 bridge_init_772x[][2] = {
-	{ 0xc2, 0x0c },
-	{ 0x88, 0xf8 },
-	{ 0xc3, 0x69 },
-	{ 0x89, 0xff },
-	{ 0x76, 0x03 },
-	{ 0x92, 0x01 },
-	{ 0x93, 0x18 },
-	{ 0x94, 0x10 },
-	{ 0x95, 0x10 },
-	{ 0xe2, 0x00 },
-	{ 0xe7, 0x3e },
+    { 0xc2, 0x0c },
+    { 0x88, 0xf8 },
+    { 0xc3, 0x69 },
+    { 0x89, 0xff },
+    { 0x76, 0x03 },
+    { 0x92, 0x01 },
+    { 0x93, 0x18 },
+    { 0x94, 0x10 },
+    { 0x95, 0x10 },
+    { 0xe2, 0x00 },
+    { 0xe7, 0x3e },
 
-	{ 0x96, 0x00 },
+    { 0x96, 0x00 },
 
-	{ 0x97, 0x20 },
-	{ 0x97, 0x20 },
-	{ 0x97, 0x20 },
-	{ 0x97, 0x0a },
-	{ 0x97, 0x3f },
-	{ 0x97, 0x4a },
-	{ 0x97, 0x20 },
-	{ 0x97, 0x15 },
-	{ 0x97, 0x0b },
+    { 0x97, 0x20 },
+    { 0x97, 0x20 },
+    { 0x97, 0x20 },
+    { 0x97, 0x0a },
+    { 0x97, 0x3f },
+    { 0x97, 0x4a },
+    { 0x97, 0x20 },
+    { 0x97, 0x15 },
+    { 0x97, 0x0b },
 
-	{ 0x8e, 0x40 },
-	{ 0x1f, 0x81 },
-	{ 0x34, 0x05 },
-	{ 0xe3, 0x04 },
-	{ 0x88, 0x00 },
-	{ 0x89, 0x00 },
-	{ 0x76, 0x00 },
-	{ 0xe7, 0x2e },
-	{ 0x31, 0xf9 },
-	{ 0x25, 0x42 },
-	{ 0x21, 0xf0 },
+    { 0x8e, 0x40 },
+    { 0x1f, 0x81 },
+    { 0x34, 0x05 },
+    { 0xe3, 0x04 },
+    { 0x88, 0x00 },
+    { 0x89, 0x00 },
+    { 0x76, 0x00 },
+    { 0xe7, 0x2e },
+    { 0x31, 0xf9 },
+    { 0x25, 0x42 },
+    { 0x21, 0xf0 },
 
-	{ 0x1c, 0x00 },
-	{ 0x1d, 0x40 },
-	{ 0x1d, 0x02 }, /* payload size 0x0200 * 4 = 2048 bytes */
-	{ 0x1d, 0x00 }, /* payload size */
+    { 0x1c, 0x00 },
+    { 0x1d, 0x40 },
+    { 0x1d, 0x02 }, /* payload size 0x0200 * 4 = 2048 bytes */
+    { 0x1d, 0x00 }, /* payload size */
 
-	{ 0x1d, 0x02 }, /* frame size 0x025800 * 4 = 614400 */
-	{ 0x1d, 0x58 }, /* frame size */
-	{ 0x1d, 0x00 }, /* frame size */
+    { 0x1d, 0x02 }, /* frame size 0x025800 * 4 = 614400 */
+    { 0x1d, 0x58 }, /* frame size */
+    { 0x1d, 0x00 }, /* frame size */
 
-	{ 0x1c, 0x0a },
-	{ 0x1d, 0x08 }, /* turn on UVC header */
-	{ 0x1d, 0x0e }, /* .. */
+    { 0x1c, 0x0a },
+    { 0x1d, 0x08 }, /* turn on UVC header */
+    { 0x1d, 0x0e }, /* .. */
 
-	{ 0x8d, 0x1c },
-	{ 0x8e, 0x80 },
-	{ 0xe5, 0x04 },
+    { 0x8d, 0x1c },
+    { 0x8e, 0x80 },
+    { 0xe5, 0x04 },
 
-	{ 0xc0, 0x50 },
-	{ 0xc1, 0x3c },
-	{ 0xc2, 0x0c },
+    { 0xc0, 0x50 },
+    { 0xc1, 0x3c },
+    { 0xc2, 0x0c },
 };
 static const u8 sensor_init_772x[][2] = {
-	{ 0x12, 0x80 },
-	{ 0x11, 0x01 },
+    { 0x12, 0x80 },
+    { 0x11, 0x01 },
 /*fixme: better have a delay?*/
-	{ 0x11, 0x01 },
-	{ 0x11, 0x01 },
-	{ 0x11, 0x01 },
-	{ 0x11, 0x01 },
-	{ 0x11, 0x01 },
-	{ 0x11, 0x01 },
-	{ 0x11, 0x01 },
-	{ 0x11, 0x01 },
-	{ 0x11, 0x01 },
-	{ 0x11, 0x01 },
+    { 0x11, 0x01 },
+    { 0x11, 0x01 },
+    { 0x11, 0x01 },
+    { 0x11, 0x01 },
+    { 0x11, 0x01 },
+    { 0x11, 0x01 },
+    { 0x11, 0x01 },
+    { 0x11, 0x01 },
+    { 0x11, 0x01 },
+    { 0x11, 0x01 },
 
-	{ 0x3d, 0x03 },
-	{ 0x17, 0x26 },
-	{ 0x18, 0xa0 },
-	{ 0x19, 0x07 },
-	{ 0x1a, 0xf0 },
-	{ 0x32, 0x00 },
-	{ 0x29, 0xa0 },
-	{ 0x2c, 0xf0 },
-	{ 0x65, 0x20 },
-	{ 0x11, 0x01 },
-	{ 0x42, 0x7f },
-	{ 0x63, 0xaa },		/* AWB - was e0 */
-	{ 0x64, 0xff },
-	{ 0x66, 0x00 },
-	{ 0x13, 0xf0 },		/* com8 */
-	{ 0x0d, 0x41 },
-	{ 0x0f, 0xc5 },
-	{ 0x14, 0x11 },
+    { 0x3d, 0x03 },
+    { 0x17, 0x26 },
+    { 0x18, 0xa0 },
+    { 0x19, 0x07 },
+    { 0x1a, 0xf0 },
+    { 0x32, 0x00 },
+    { 0x29, 0xa0 },
+    { 0x2c, 0xf0 },
+    { 0x65, 0x20 },
+    { 0x11, 0x01 },
+    { 0x42, 0x7f },
+    { 0x63, 0xaa },     /* AWB - was e0 */
+    { 0x64, 0xff },
+    { 0x66, 0x00 },
+    { 0x13, 0xf0 },     /* com8 */
+    { 0x0d, 0x41 },
+    { 0x0f, 0xc5 },
+    { 0x14, 0x11 },
 
-	{ 0x22, 0x7f },
-	{ 0x23, 0x03 },
-	{ 0x24, 0x40 },
-	{ 0x25, 0x30 },
-	{ 0x26, 0xa1 },
-	{ 0x2a, 0x00 },
-	{ 0x2b, 0x00 },
-	{ 0x6b, 0xaa },
-	{ 0x13, 0xff },		/* AWB */
+    { 0x22, 0x7f },
+    { 0x23, 0x03 },
+    { 0x24, 0x40 },
+    { 0x25, 0x30 },
+    { 0x26, 0xa1 },
+    { 0x2a, 0x00 },
+    { 0x2b, 0x00 },
+    { 0x6b, 0xaa },
+    { 0x13, 0xff },     /* AWB */
 
-	{ 0x90, 0x05 },
-	{ 0x91, 0x01 },
-	{ 0x92, 0x03 },
-	{ 0x93, 0x00 },
-	{ 0x94, 0x60 },
-	{ 0x95, 0x3c },
-	{ 0x96, 0x24 },
-	{ 0x97, 0x1e },
-	{ 0x98, 0x62 },
-	{ 0x99, 0x80 },
-	{ 0x9a, 0x1e },
-	{ 0x9b, 0x08 },
-	{ 0x9c, 0x20 },
-	{ 0x9e, 0x81 },
+    { 0x90, 0x05 },
+    { 0x91, 0x01 },
+    { 0x92, 0x03 },
+    { 0x93, 0x00 },
+    { 0x94, 0x60 },
+    { 0x95, 0x3c },
+    { 0x96, 0x24 },
+    { 0x97, 0x1e },
+    { 0x98, 0x62 },
+    { 0x99, 0x80 },
+    { 0x9a, 0x1e },
+    { 0x9b, 0x08 },
+    { 0x9c, 0x20 },
+    { 0x9e, 0x81 },
 
-	{ 0xa6, 0x07 },
-	{ 0x7e, 0x0c },
-	{ 0x7f, 0x16 },
-	{ 0x80, 0x2a },
-	{ 0x81, 0x4e },
-	{ 0x82, 0x61 },
-	{ 0x83, 0x6f },
-	{ 0x84, 0x7b },
-	{ 0x85, 0x86 },
-	{ 0x86, 0x8e },
-	{ 0x87, 0x97 },
-	{ 0x88, 0xa4 },
-	{ 0x89, 0xaf },
-	{ 0x8a, 0xc5 },
-	{ 0x8b, 0xd7 },
-	{ 0x8c, 0xe8 },
-	{ 0x8d, 0x20 },
+    { 0xa6, 0x07 },
+    { 0x7e, 0x0c },
+    { 0x7f, 0x16 },
+    { 0x80, 0x2a },
+    { 0x81, 0x4e },
+    { 0x82, 0x61 },
+    { 0x83, 0x6f },
+    { 0x84, 0x7b },
+    { 0x85, 0x86 },
+    { 0x86, 0x8e },
+    { 0x87, 0x97 },
+    { 0x88, 0xa4 },
+    { 0x89, 0xaf },
+    { 0x8a, 0xc5 },
+    { 0x8b, 0xd7 },
+    { 0x8c, 0xe8 },
+    { 0x8d, 0x20 },
 
-	{ 0x0c, 0x90 },
+    { 0x0c, 0x90 },
 
-	{ 0x2b, 0x00 },
-	{ 0x22, 0x7f },
-	{ 0x23, 0x03 },
-	{ 0x11, 0x01 },
-	{ 0x0c, 0xd0 },
-	{ 0x64, 0xff },
-	{ 0x0d, 0x41 },
+    { 0x2b, 0x00 },
+    { 0x22, 0x7f },
+    { 0x23, 0x03 },
+    { 0x11, 0x01 },
+    { 0x0c, 0xd0 },
+    { 0x64, 0xff },
+    { 0x0d, 0x41 },
 
-	{ 0x14, 0x41 },
-	{ 0x0e, 0xcd },
-	{ 0xac, 0xbf },
-	{ 0x8e, 0x00 },		/* De-noise threshold */
-	{ 0x0c, 0xd0 }
+    { 0x14, 0x41 },
+    { 0x0e, 0xcd },
+    { 0xac, 0xbf },
+    { 0x8e, 0x00 },     /* De-noise threshold */
+    { 0x0c, 0xd0 }
 };
 static const u8 bridge_start_vga_772x[][2] = {
-	{0x1c, 0x00},
-	{0x1d, 0x40},
-	{0x1d, 0x02},
-	{0x1d, 0x00},
-	{0x1d, 0x02},
-	{0x1d, 0x58},
-	{0x1d, 0x00},
-	{0xc0, 0x50},
-	{0xc1, 0x3c},
+    {0x1c, 0x00},
+    {0x1d, 0x40},
+    {0x1d, 0x02},
+    {0x1d, 0x00},
+    {0x1d, 0x02},
+    {0x1d, 0x58},
+    {0x1d, 0x00},
+    {0xc0, 0x50},
+    {0xc1, 0x3c},
 };
 static const u8 sensor_start_vga_772x[][2] = {
-	{0x12, 0x00},
-	{0x17, 0x26},
-	{0x18, 0xa0},
-	{0x19, 0x07},
-	{0x1a, 0xf0},
-	{0x29, 0xa0},
-	{0x2c, 0xf0},
-	{0x65, 0x20},
+    {0x12, 0x00},
+    {0x17, 0x26},
+    {0x18, 0xa0},
+    {0x19, 0x07},
+    {0x1a, 0xf0},
+    {0x29, 0xa0},
+    {0x2c, 0xf0},
+    {0x65, 0x20},
 };
 static const u8 bridge_start_qvga_772x[][2] = {
-	{0x1c, 0x00},
-	{0x1d, 0x40},
-	{0x1d, 0x02},
-	{0x1d, 0x00},
-	{0x1d, 0x01},
-	{0x1d, 0x4b},
-	{0x1d, 0x00},
-	{0xc0, 0x28},
-	{0xc1, 0x1e},
+    {0x1c, 0x00},
+    {0x1d, 0x40},
+    {0x1d, 0x02},
+    {0x1d, 0x00},
+    {0x1d, 0x01},
+    {0x1d, 0x4b},
+    {0x1d, 0x00},
+    {0xc0, 0x28},
+    {0xc1, 0x1e},
 };
 static const u8 sensor_start_qvga_772x[][2] = {
-	{0x12, 0x40},
-	{0x17, 0x3f},
-	{0x18, 0x50},
-	{0x19, 0x03},
-	{0x1a, 0x78},
-	{0x29, 0x50},
-	{0x2c, 0x78},
-	{0x65, 0x2f},
+    {0x12, 0x40},
+    {0x17, 0x3f},
+    {0x18, 0x50},
+    {0x19, 0x03},
+    {0x1a, 0x78},
+    {0x29, 0x50},
+    {0x2c, 0x78},
+    {0x65, 0x2f},
 };
 
 static void ov534_reg_write(struct gspca_dev *gspca_dev, u16 reg, u8 val)
 {
-	struct usb_device *udev = gspca_dev->dev;
-	int ret;
+    struct usb_device *udev = gspca_dev->dev;
+    int ret;
 
-	if (gspca_dev->usb_err < 0)
-		return;
+    if (gspca_dev->usb_err < 0)
+        return;
 
-	PDEBUG(D_USBO, "SET 01 0000 %04x %02x", reg, val);
-	gspca_dev->usb_buf[0] = val;
-	ret = usb_control_msg(udev,
-			      usb_sndctrlpipe(udev, 0),
-			      0x01,
-			      USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-			      0x00, reg, gspca_dev->usb_buf, 1, CTRL_TIMEOUT);
-	if (ret < 0) {
-		pr_err("write failed %d\n", ret);
-		gspca_dev->usb_err = ret;
-	}
+    PDEBUG(D_USBO, "SET 01 0000 %04x %02x", reg, val);
+    gspca_dev->usb_buf[0] = val;
+    ret = usb_control_msg(udev,
+                  usb_sndctrlpipe(udev, 0),
+                  0x01,
+                  USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+                  0x00, reg, gspca_dev->usb_buf, 1, CTRL_TIMEOUT);
+    if (ret < 0) {
+        pr_err("write failed %d\n", ret);
+        gspca_dev->usb_err = ret;
+    }
 }
 
 static u8 ov534_reg_read(struct gspca_dev *gspca_dev, u16 reg)
 {
-	struct usb_device *udev = gspca_dev->dev;
-	int ret;
+    struct usb_device *udev = gspca_dev->dev;
+    int ret;
 
-	if (gspca_dev->usb_err < 0)
-		return 0;
-	ret = usb_control_msg(udev,
-			      usb_rcvctrlpipe(udev, 0),
-			      0x01,
-			      USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-			      0x00, reg, gspca_dev->usb_buf, 1, CTRL_TIMEOUT);
-	PDEBUG(D_USBI, "GET 01 0000 %04x %02x", reg, gspca_dev->usb_buf[0]);
-	if (ret < 0) {
-		pr_err("read failed %d\n", ret);
-		gspca_dev->usb_err = ret;
-	}
-	return gspca_dev->usb_buf[0];
+    if (gspca_dev->usb_err < 0)
+        return 0;
+    ret = usb_control_msg(udev,
+                  usb_rcvctrlpipe(udev, 0),
+                  0x01,
+                  USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+                  0x00, reg, gspca_dev->usb_buf, 1, CTRL_TIMEOUT);
+    PDEBUG(D_USBI, "GET 01 0000 %04x %02x", reg, gspca_dev->usb_buf[0]);
+    if (ret < 0) {
+        pr_err("read failed %d\n", ret);
+        gspca_dev->usb_err = ret;
+    }
+    return gspca_dev->usb_buf[0];
 }
 
 /* Two bits control LED: 0x21 bit 7 and 0x23 bit 7.
  * (direction and output)? */
 static void ov534_set_led(struct gspca_dev *gspca_dev, int status)
 {
-	u8 data;
+    u8 data;
 
-	PDEBUG(D_CONF, "led status: %d", status);
+    PDEBUG(D_CONF, "led status: %d", status);
 
-	data = ov534_reg_read(gspca_dev, 0x21);
-	data |= 0x80;
-	ov534_reg_write(gspca_dev, 0x21, data);
+    data = ov534_reg_read(gspca_dev, 0x21);
+    data |= 0x80;
+    ov534_reg_write(gspca_dev, 0x21, data);
 
-	data = ov534_reg_read(gspca_dev, 0x23);
-	if (status)
-		data |= 0x80;
-	else
-		data &= ~0x80;
+    data = ov534_reg_read(gspca_dev, 0x23);
+    if (status)
+        data |= 0x80;
+    else
+        data &= ~0x80;
 
-	ov534_reg_write(gspca_dev, 0x23, data);
+    ov534_reg_write(gspca_dev, 0x23, data);
 
-	if (!status) {
-		data = ov534_reg_read(gspca_dev, 0x21);
-		data &= ~0x80;
-		ov534_reg_write(gspca_dev, 0x21, data);
-	}
+    if (!status) {
+        data = ov534_reg_read(gspca_dev, 0x21);
+        data &= ~0x80;
+        ov534_reg_write(gspca_dev, 0x21, data);
+    }
 }
 
 static int sccb_check_status(struct gspca_dev *gspca_dev)
 {
-	u8 data;
-	int i;
+    u8 data;
+    int i;
 
-	for (i = 0; i < 5; i++) {
-		msleep(10);
-		data = ov534_reg_read(gspca_dev, OV534_REG_STATUS);
+    for (i = 0; i < 5; i++) {
+        msleep(10);
+        data = ov534_reg_read(gspca_dev, OV534_REG_STATUS);
 
-		switch (data) {
-		case 0x00:
-			return 1;
-		case 0x04:
-			return 0;
-		case 0x03:
-			break;
-		default:
-			PERR("sccb status 0x%02x, attempt %d/5",
-			       data, i + 1);
-		}
-	}
-	return 0;
+        switch (data) {
+        case 0x00:
+            return 1;
+        case 0x04:
+            return 0;
+        case 0x03:
+            break;
+        default:
+            PERR("sccb status 0x%02x, attempt %d/5",
+                   data, i + 1);
+        }
+    }
+    return 0;
 }
 
 static void sccb_reg_write(struct gspca_dev *gspca_dev, u8 reg, u8 val)
 {
-	PDEBUG(D_USBO, "sccb write: %02x %02x", reg, val);
-	ov534_reg_write(gspca_dev, OV534_REG_SUBADDR, reg);
-	ov534_reg_write(gspca_dev, OV534_REG_WRITE, val);
-	ov534_reg_write(gspca_dev, OV534_REG_OPERATION, OV534_OP_WRITE_3);
+    PDEBUG(D_USBO, "sccb write: %02x %02x", reg, val);
+    ov534_reg_write(gspca_dev, OV534_REG_SUBADDR, reg);
+    ov534_reg_write(gspca_dev, OV534_REG_WRITE, val);
+    ov534_reg_write(gspca_dev, OV534_REG_OPERATION, OV534_OP_WRITE_3);
 
-	if (!sccb_check_status(gspca_dev)) {
-		pr_err("sccb_reg_write failed\n");
-		gspca_dev->usb_err = -EIO;
-	}
+    if (!sccb_check_status(gspca_dev)) {
+        pr_err("sccb_reg_write failed\n");
+        gspca_dev->usb_err = -EIO;
+    }
 }
 
 static u8 sccb_reg_read(struct gspca_dev *gspca_dev, u16 reg)
 {
-	ov534_reg_write(gspca_dev, OV534_REG_SUBADDR, reg);
-	ov534_reg_write(gspca_dev, OV534_REG_OPERATION, OV534_OP_WRITE_2);
-	if (!sccb_check_status(gspca_dev))
-		pr_err("sccb_reg_read failed 1\n");
+    ov534_reg_write(gspca_dev, OV534_REG_SUBADDR, reg);
+    ov534_reg_write(gspca_dev, OV534_REG_OPERATION, OV534_OP_WRITE_2);
+    if (!sccb_check_status(gspca_dev))
+        pr_err("sccb_reg_read failed 1\n");
 
-	ov534_reg_write(gspca_dev, OV534_REG_OPERATION, OV534_OP_READ_2);
-	if (!sccb_check_status(gspca_dev))
-		pr_err("sccb_reg_read failed 2\n");
+    ov534_reg_write(gspca_dev, OV534_REG_OPERATION, OV534_OP_READ_2);
+    if (!sccb_check_status(gspca_dev))
+        pr_err("sccb_reg_read failed 2\n");
 
-	return ov534_reg_read(gspca_dev, OV534_REG_READ);
+    return ov534_reg_read(gspca_dev, OV534_REG_READ);
 }
 
 /* output a bridge sequence (reg - val) */
 static void reg_w_array(struct gspca_dev *gspca_dev,
-			const u8 (*data)[2], int len)
+            const u8 (*data)[2], int len)
 {
-	while (--len >= 0) {
-		ov534_reg_write(gspca_dev, (*data)[0], (*data)[1]);
-		data++;
-	}
+    while (--len >= 0) {
+        ov534_reg_write(gspca_dev, (*data)[0], (*data)[1]);
+        data++;
+    }
 }
 
 /* output a sensor sequence (reg - val) */
 static void sccb_w_array(struct gspca_dev *gspca_dev,
-			const u8 (*data)[2], int len)
+            const u8 (*data)[2], int len)
 {
-	while (--len >= 0) {
-		if ((*data)[0] != 0xff) {
-			sccb_reg_write(gspca_dev, (*data)[0], (*data)[1]);
-		} else {
-			sccb_reg_read(gspca_dev, (*data)[1]);
-			sccb_reg_write(gspca_dev, 0xff, 0x00);
-		}
-		data++;
-	}
+    while (--len >= 0) {
+        if ((*data)[0] != 0xff) {
+            sccb_reg_write(gspca_dev, (*data)[0], (*data)[1]);
+        } else {
+            sccb_reg_read(gspca_dev, (*data)[1]);
+            sccb_reg_write(gspca_dev, 0xff, 0x00);
+        }
+        data++;
+    }
 }
 
 /* ov772x specific controls */
 static void set_frame_rate(struct gspca_dev *gspca_dev)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
-	int i;
-	struct rate_s {
-		u8 fps;
-		u8 r11;
-		u8 r0d;
-		u8 re5;
-	};
-	const struct rate_s *r;
-	static const struct rate_s rate_0[] = {	/* 640x480 */
-		{60, 0x01, 0xc1, 0x04},
-		{50, 0x01, 0x41, 0x02},
-		{40, 0x02, 0xc1, 0x04},
-		{30, 0x04, 0x81, 0x02},
-		{15, 0x03, 0x41, 0x04},
-	};
-	static const struct rate_s rate_1[] = {	/* 320x240 */
-/*		{205, 0x01, 0xc1, 0x02},  * 205 FPS: video is partly corrupt */
-		{187, 0x01, 0x81, 0x02}, /* 187 FPS or below: video is valid */
-		{150, 0x01, 0xc1, 0x04},
-		{137, 0x02, 0xc1, 0x02},
-		{125, 0x02, 0x81, 0x02},
-		{100, 0x02, 0xc1, 0x04},
-		{75, 0x03, 0xc1, 0x04},
-		{60, 0x04, 0xc1, 0x04},
-		{50, 0x02, 0x41, 0x04},
-		{37, 0x03, 0x41, 0x04},
-		{30, 0x04, 0x41, 0x04},
-	};
+    struct sd *sd = (struct sd *) gspca_dev;
+    int i;
+    struct rate_s {
+        u8 fps;
+        u8 r11;
+        u8 r0d;
+        u8 re5;
+    };
+    const struct rate_s *r;
+    static const struct rate_s rate_0[] = { /* 640x480 */
+        {60, 0x01, 0xc1, 0x04},
+        {50, 0x01, 0x41, 0x02},
+        {40, 0x02, 0xc1, 0x04},
+        {30, 0x04, 0x81, 0x02},
+        {15, 0x03, 0x41, 0x04},
+    };
+    static const struct rate_s rate_1[] = { /* 320x240 */
+/*      {205, 0x01, 0xc1, 0x02},  * 205 FPS: video is partly corrupt */
+        {187, 0x01, 0x81, 0x02}, /* 187 FPS or below: video is valid */
+        {150, 0x01, 0xc1, 0x04},
+        {137, 0x02, 0xc1, 0x02},
+        {125, 0x02, 0x81, 0x02},
+        {100, 0x02, 0xc1, 0x04},
+        {75, 0x03, 0xc1, 0x04},
+        {60, 0x04, 0xc1, 0x04},
+        {50, 0x02, 0x41, 0x04},
+        {37, 0x03, 0x41, 0x04},
+        {30, 0x04, 0x41, 0x04},
+    };
 
-	if (sd->sensor != SENSOR_OV772x)
-		return;
-	if (gspca_dev->cam.cam_mode[gspca_dev->curr_mode].priv == 0) {
-		r = rate_0;
-		i = ARRAY_SIZE(rate_0);
-	} else {
-		r = rate_1;
-		i = ARRAY_SIZE(rate_1);
-	}
-	while (--i > 0) {
-		if (sd->frame_rate >= r->fps)
-			break;
-		r++;
-	}
+    if (sd->sensor != SENSOR_OV772x)
+        return;
+    if (gspca_dev->cam.cam_mode[gspca_dev->curr_mode].priv == 0) {
+        r = rate_0;
+        i = ARRAY_SIZE(rate_0);
+    } else {
+        r = rate_1;
+        i = ARRAY_SIZE(rate_1);
+    }
+    while (--i > 0) {
+        if (sd->frame_rate >= r->fps)
+            break;
+        r++;
+    }
 
-	sccb_reg_write(gspca_dev, 0x11, r->r11);
-	sccb_reg_write(gspca_dev, 0x0d, r->r0d);
-	ov534_reg_write(gspca_dev, 0xe5, r->re5);
+    sccb_reg_write(gspca_dev, 0x11, r->r11);
+    sccb_reg_write(gspca_dev, 0x0d, r->r0d);
+    ov534_reg_write(gspca_dev, 0xe5, r->re5);
 
-	PDEBUG(D_PROBE, "frame_rate: %d", r->fps);
+    PDEBUG(D_PROBE, "frame_rate: %d", r->fps);
 }
 
 static void sethue(struct gspca_dev *gspca_dev, s32 val)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
+    struct sd *sd = (struct sd *) gspca_dev;
 
-	if (sd->sensor == SENSOR_OV767x) {
-		/* TBD */
-	} else {
-		s16 huesin;
-		s16 huecos;
+    if (sd->sensor == SENSOR_OV767x) {
+        /* TBD */
+    } else {
+        s16 huesin;
+        s16 huecos;
 
-		/* According to the datasheet the registers expect HUESIN and
-		 * HUECOS to be the result of the trigonometric functions,
-		 * scaled by 0x80.
-		 *
-		 * The 0x7fff here represents the maximum absolute value
-		 * returned byt fixp_sin and fixp_cos, so the scaling will
-		 * consider the result like in the interval [-1.0, 1.0].
-		 */
-		huesin = fixp_sin16(val) * 0x80 / 0x7fff;
-		huecos = fixp_cos16(val) * 0x80 / 0x7fff;
+        /* According to the datasheet the registers expect HUESIN and
+         * HUECOS to be the result of the trigonometric functions,
+         * scaled by 0x80.
+         *
+         * The 0x7fff here represents the maximum absolute value
+         * returned byt fixp_sin and fixp_cos, so the scaling will
+         * consider the result like in the interval [-1.0, 1.0].
+         */
+        huesin = fixp_sin16(val) * 0x80 / 0x7fff;
+        huecos = fixp_cos16(val) * 0x80 / 0x7fff;
 
-		if (huesin < 0) {
-			sccb_reg_write(gspca_dev, 0xab,
-				sccb_reg_read(gspca_dev, 0xab) | 0x2);
-			huesin = -huesin;
-		} else {
-			sccb_reg_write(gspca_dev, 0xab,
-				sccb_reg_read(gspca_dev, 0xab) & ~0x2);
+        if (huesin < 0) {
+            sccb_reg_write(gspca_dev, 0xab,
+                sccb_reg_read(gspca_dev, 0xab) | 0x2);
+            huesin = -huesin;
+        } else {
+            sccb_reg_write(gspca_dev, 0xab,
+                sccb_reg_read(gspca_dev, 0xab) & ~0x2);
 
-		}
-		sccb_reg_write(gspca_dev, 0xa9, (u8)huecos);
-		sccb_reg_write(gspca_dev, 0xaa, (u8)huesin);
-	}
+        }
+        sccb_reg_write(gspca_dev, 0xa9, (u8)huecos);
+        sccb_reg_write(gspca_dev, 0xaa, (u8)huesin);
+    }
 }
 
 static void setsaturation(struct gspca_dev *gspca_dev, s32 val)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
+    struct sd *sd = (struct sd *) gspca_dev;
 
-	if (sd->sensor == SENSOR_OV767x) {
-		int i;
-		static u8 color_tb[][6] = {
-			{0x42, 0x42, 0x00, 0x11, 0x30, 0x41},
-			{0x52, 0x52, 0x00, 0x16, 0x3c, 0x52},
-			{0x66, 0x66, 0x00, 0x1b, 0x4b, 0x66},
-			{0x80, 0x80, 0x00, 0x22, 0x5e, 0x80},
-			{0x9a, 0x9a, 0x00, 0x29, 0x71, 0x9a},
-			{0xb8, 0xb8, 0x00, 0x31, 0x87, 0xb8},
-			{0xdd, 0xdd, 0x00, 0x3b, 0xa2, 0xdd},
-		};
+    if (sd->sensor == SENSOR_OV767x) {
+        int i;
+        static u8 color_tb[][6] = {
+            {0x42, 0x42, 0x00, 0x11, 0x30, 0x41},
+            {0x52, 0x52, 0x00, 0x16, 0x3c, 0x52},
+            {0x66, 0x66, 0x00, 0x1b, 0x4b, 0x66},
+            {0x80, 0x80, 0x00, 0x22, 0x5e, 0x80},
+            {0x9a, 0x9a, 0x00, 0x29, 0x71, 0x9a},
+            {0xb8, 0xb8, 0x00, 0x31, 0x87, 0xb8},
+            {0xdd, 0xdd, 0x00, 0x3b, 0xa2, 0xdd},
+        };
 
-		for (i = 0; i < ARRAY_SIZE(color_tb[0]); i++)
-			sccb_reg_write(gspca_dev, 0x4f + i, color_tb[val][i]);
-	} else {
-		sccb_reg_write(gspca_dev, 0xa7, val); /* U saturation */
-		sccb_reg_write(gspca_dev, 0xa8, val); /* V saturation */
-	}
+        for (i = 0; i < ARRAY_SIZE(color_tb[0]); i++)
+            sccb_reg_write(gspca_dev, 0x4f + i, color_tb[val][i]);
+    } else {
+        sccb_reg_write(gspca_dev, 0xa7, val); /* U saturation */
+        sccb_reg_write(gspca_dev, 0xa8, val); /* V saturation */
+    }
 }
 
 static void setbrightness(struct gspca_dev *gspca_dev, s32 val)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
+    struct sd *sd = (struct sd *) gspca_dev;
 
-	if (sd->sensor == SENSOR_OV767x) {
-		if (val < 0)
-			val = 0x80 - val;
-		sccb_reg_write(gspca_dev, 0x55, val);	/* bright */
-	} else {
-		sccb_reg_write(gspca_dev, 0x9b, val);
-	}
+    if (sd->sensor == SENSOR_OV767x) {
+        if (val < 0)
+            val = 0x80 - val;
+        sccb_reg_write(gspca_dev, 0x55, val);   /* bright */
+    } else {
+        sccb_reg_write(gspca_dev, 0x9b, val);
+    }
 }
 
 static void setcontrast(struct gspca_dev *gspca_dev, s32 val)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
+    struct sd *sd = (struct sd *) gspca_dev;
 
-	if (sd->sensor == SENSOR_OV767x)
-		sccb_reg_write(gspca_dev, 0x56, val);	/* contras */
-	else
-		sccb_reg_write(gspca_dev, 0x9c, val);
+    if (sd->sensor == SENSOR_OV767x)
+        sccb_reg_write(gspca_dev, 0x56, val);   /* contras */
+    else
+        sccb_reg_write(gspca_dev, 0x9c, val);
 }
 
 static void setgain(struct gspca_dev *gspca_dev, s32 val)
 {
-	switch (val & 0x30) {
-	case 0x00:
-		val &= 0x0f;
-		break;
-	case 0x10:
-		val &= 0x0f;
-		val |= 0x30;
-		break;
-	case 0x20:
-		val &= 0x0f;
-		val |= 0x70;
-		break;
-	default:
-/*	case 0x30: */
-		val &= 0x0f;
-		val |= 0xf0;
-		break;
-	}
-	sccb_reg_write(gspca_dev, 0x00, val);
+    switch (val & 0x30) {
+    case 0x00:
+        val &= 0x0f;
+        break;
+    case 0x10:
+        val &= 0x0f;
+        val |= 0x30;
+        break;
+    case 0x20:
+        val &= 0x0f;
+        val |= 0x70;
+        break;
+    default:
+/*  case 0x30: */
+        val &= 0x0f;
+        val |= 0xf0;
+        break;
+    }
+    sccb_reg_write(gspca_dev, 0x00, val);
 }
 
 static s32 getgain(struct gspca_dev *gspca_dev)
 {
-	return sccb_reg_read(gspca_dev, 0x00);
+    return sccb_reg_read(gspca_dev, 0x00);
 }
 
 static void setexposure(struct gspca_dev *gspca_dev, s32 val)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
+    struct sd *sd = (struct sd *) gspca_dev;
 
-	if (sd->sensor == SENSOR_OV767x) {
+    if (sd->sensor == SENSOR_OV767x) {
 
-		/* set only aec[9:2] */
-		sccb_reg_write(gspca_dev, 0x10, val);	/* aech */
-	} else {
+        /* set only aec[9:2] */
+        sccb_reg_write(gspca_dev, 0x10, val);   /* aech */
+    } else {
 
-		/* 'val' is one byte and represents half of the exposure value
-		 * we are going to set into registers, a two bytes value:
-		 *
-		 *    MSB: ((u16) val << 1) >> 8   == val >> 7
-		 *    LSB: ((u16) val << 1) & 0xff == val << 1
-		 */
-		sccb_reg_write(gspca_dev, 0x08, val >> 7);
-		sccb_reg_write(gspca_dev, 0x10, val << 1);
-	}
+        /* 'val' is one byte and represents half of the exposure value
+         * we are going to set into registers, a two bytes value:
+         *
+         *    MSB: ((u16) val << 1) >> 8   == val >> 7
+         *    LSB: ((u16) val << 1) & 0xff == val << 1
+         */
+        sccb_reg_write(gspca_dev, 0x08, val >> 7);
+        sccb_reg_write(gspca_dev, 0x10, val << 1);
+    }
 }
 
 static s32 getexposure(struct gspca_dev *gspca_dev)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
+    struct sd *sd = (struct sd *) gspca_dev;
 
-	if (sd->sensor == SENSOR_OV767x) {
-		/* get only aec[9:2] */
-		return sccb_reg_read(gspca_dev, 0x10);	/* aech */
-	} else {
-		u8 hi = sccb_reg_read(gspca_dev, 0x08);
-		u8 lo = sccb_reg_read(gspca_dev, 0x10);
-		return (hi << 8 | lo) >> 1;
-	}
+    if (sd->sensor == SENSOR_OV767x) {
+        /* get only aec[9:2] */
+        return sccb_reg_read(gspca_dev, 0x10);  /* aech */
+    } else {
+        u8 hi = sccb_reg_read(gspca_dev, 0x08);
+        u8 lo = sccb_reg_read(gspca_dev, 0x10);
+        return (hi << 8 | lo) >> 1;
+    }
 }
 
 static void setagc(struct gspca_dev *gspca_dev, s32 val)
 {
-	if (val) {
-		sccb_reg_write(gspca_dev, 0x13,
-				sccb_reg_read(gspca_dev, 0x13) | 0x04);
-		sccb_reg_write(gspca_dev, 0x64,
-				sccb_reg_read(gspca_dev, 0x64) | 0x03);
-	} else {
-		sccb_reg_write(gspca_dev, 0x13,
-				sccb_reg_read(gspca_dev, 0x13) & ~0x04);
-		sccb_reg_write(gspca_dev, 0x64,
-				sccb_reg_read(gspca_dev, 0x64) & ~0x03);
-	}
+    if (val) {
+        sccb_reg_write(gspca_dev, 0x13,
+                sccb_reg_read(gspca_dev, 0x13) | 0x04);
+        sccb_reg_write(gspca_dev, 0x64,
+                sccb_reg_read(gspca_dev, 0x64) | 0x03);
+    } else {
+        sccb_reg_write(gspca_dev, 0x13,
+                sccb_reg_read(gspca_dev, 0x13) & ~0x04);
+        sccb_reg_write(gspca_dev, 0x64,
+                sccb_reg_read(gspca_dev, 0x64) & ~0x03);
+    }
 }
 
 static void setawb(struct gspca_dev *gspca_dev, s32 val)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
+    struct sd *sd = (struct sd *) gspca_dev;
 
-	if (val) {
-		sccb_reg_write(gspca_dev, 0x13,
-				sccb_reg_read(gspca_dev, 0x13) | 0x02);
-		if (sd->sensor == SENSOR_OV772x)
-			sccb_reg_write(gspca_dev, 0x63,
-				sccb_reg_read(gspca_dev, 0x63) | 0xc0);
-	} else {
-		sccb_reg_write(gspca_dev, 0x13,
-				sccb_reg_read(gspca_dev, 0x13) & ~0x02);
-		if (sd->sensor == SENSOR_OV772x)
-			sccb_reg_write(gspca_dev, 0x63,
-				sccb_reg_read(gspca_dev, 0x63) & ~0xc0);
-	}
+    if (val) {
+        sccb_reg_write(gspca_dev, 0x13,
+                sccb_reg_read(gspca_dev, 0x13) | 0x02);
+        if (sd->sensor == SENSOR_OV772x)
+            sccb_reg_write(gspca_dev, 0x63,
+                sccb_reg_read(gspca_dev, 0x63) | 0xc0);
+    } else {
+        sccb_reg_write(gspca_dev, 0x13,
+                sccb_reg_read(gspca_dev, 0x13) & ~0x02);
+        if (sd->sensor == SENSOR_OV772x)
+            sccb_reg_write(gspca_dev, 0x63,
+                sccb_reg_read(gspca_dev, 0x63) & ~0xc0);
+    }
 }
 
 static void setaec(struct gspca_dev *gspca_dev, s32 val)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
-	u8 data;
+    struct sd *sd = (struct sd *) gspca_dev;
+    u8 data;
 
-	data = sd->sensor == SENSOR_OV767x ?
-			0x05 :		/* agc + aec */
-			0x01;		/* agc */
-	switch (val) {
-	case V4L2_EXPOSURE_AUTO:
-		sccb_reg_write(gspca_dev, 0x13,
-				sccb_reg_read(gspca_dev, 0x13) | data);
-		break;
-	case V4L2_EXPOSURE_MANUAL:
-		sccb_reg_write(gspca_dev, 0x13,
-				sccb_reg_read(gspca_dev, 0x13) & ~data);
-		break;
-	}
+    data = sd->sensor == SENSOR_OV767x ?
+            0x05 :      /* agc + aec */
+            0x01;       /* agc */
+    switch (val) {
+    case V4L2_EXPOSURE_AUTO:
+        sccb_reg_write(gspca_dev, 0x13,
+                sccb_reg_read(gspca_dev, 0x13) | data);
+        break;
+    case V4L2_EXPOSURE_MANUAL:
+        sccb_reg_write(gspca_dev, 0x13,
+                sccb_reg_read(gspca_dev, 0x13) & ~data);
+        break;
+    }
 }
 
 static void setsharpness(struct gspca_dev *gspca_dev, s32 val)
 {
-	sccb_reg_write(gspca_dev, 0x91, val);	/* Auto de-noise threshold */
-	sccb_reg_write(gspca_dev, 0x8e, val);	/* De-noise threshold */
+    sccb_reg_write(gspca_dev, 0x91, val);   /* Auto de-noise threshold */
+    sccb_reg_write(gspca_dev, 0x8e, val);   /* De-noise threshold */
 }
 
 static void sethvflip(struct gspca_dev *gspca_dev, s32 hflip, s32 vflip)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
-	u8 val;
+    struct sd *sd = (struct sd *) gspca_dev;
+    u8 val;
 
-	if (sd->sensor == SENSOR_OV767x) {
-		val = sccb_reg_read(gspca_dev, 0x1e);	/* mvfp */
-		val &= ~0x30;
-		if (hflip)
-			val |= 0x20;
-		if (vflip)
-			val |= 0x10;
-		sccb_reg_write(gspca_dev, 0x1e, val);
-	} else {
-		val = sccb_reg_read(gspca_dev, 0x0c);
-		val &= ~0xc0;
-		if (hflip == 0)
-			val |= 0x40;
-		if (vflip == 0)
-			val |= 0x80;
-		sccb_reg_write(gspca_dev, 0x0c, val);
-	}
+    if (sd->sensor == SENSOR_OV767x) {
+        val = sccb_reg_read(gspca_dev, 0x1e);   /* mvfp */
+        val &= ~0x30;
+        if (hflip)
+            val |= 0x20;
+        if (vflip)
+            val |= 0x10;
+        sccb_reg_write(gspca_dev, 0x1e, val);
+    } else {
+        val = sccb_reg_read(gspca_dev, 0x0c);
+        val &= ~0xc0;
+        if (hflip == 0)
+            val |= 0x40;
+        if (vflip == 0)
+            val |= 0x80;
+        sccb_reg_write(gspca_dev, 0x0c, val);
+    }
 }
 
 static void setlightfreq(struct gspca_dev *gspca_dev, s32 val)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
+    struct sd *sd = (struct sd *) gspca_dev;
 
-	val = val ? 0x9e : 0x00;
-	if (sd->sensor == SENSOR_OV767x) {
-		sccb_reg_write(gspca_dev, 0x2a, 0x00);
-		if (val)
-			val = 0x9d;	/* insert dummy to 25fps for 50Hz */
-	}
-	sccb_reg_write(gspca_dev, 0x2b, val);
+    val = val ? 0x9e : 0x00;
+    if (sd->sensor == SENSOR_OV767x) {
+        sccb_reg_write(gspca_dev, 0x2a, 0x00);
+        if (val)
+            val = 0x9d; /* insert dummy to 25fps for 50Hz */
+    }
+    sccb_reg_write(gspca_dev, 0x2b, val);
+}
+
+static void setgamma(struct gspca_dev *gspca_dev, s32 val)
+{
+static const u8 gamma_table[][16] = {
+{0,   0,   0,   1,   2,   5,   9,   16,  25,  39,  57,  80,  111, 149, 197, 76},
+{0,   0,   0,   1,   3,   6,   11,  18,  29,  43,  61,  86,  116, 154, 200, 72},
+{0,   0,   1,   2,   4,   7,   13,  21,  32,  47,  66,  91,  121, 158, 202, 69},
+{0,   0,   1,   2,   5,   9,   15,  24,  36,  51,  71,  95,  125, 162, 205, 65},
+{0,   0,   1,   3,   6,   10,  17,  27,  39,  55,  75,  100, 130, 165, 207, 63},
+{0,   0,   1,   3,   7,   12,  20,  30,  43,  59,  80,  104, 134, 168, 209, 60},
+{0,   1,   2,   4,   8,   14,  22,  32,  46,  63,  84,  109, 138, 172, 211, 57},
+{0,   1,   2,   5,   9,   16,  24,  35,  50,  67,  88,  112, 141, 174, 212, 56},
+{0,   1,   3,   6,   11,  17,  27,  38,  53,  71,  92,  116, 145, 177, 214, 53},
+{0,   1,   3,   7,   12,  19,  29,  41,  56,  74,  95,  120, 148, 180, 215, 52},
+{0,   1,   4,   8,   13,  21,  31,  44,  59,  78,  99,  123, 151, 182, 217, 49},
+{0,   2,   4,   9,   15,  23,  34,  47,  63,  81,  102, 126, 154, 184, 218, 48},
+{0,   2,   5,   10,  16,  25,  36,  50,  66,  84,  105, 129, 156, 186, 219, 47},
+{0,   2,   6,   11,  18,  27,  39,  53,  69,  87,  109, 132, 159, 188, 220, 45},
+{1,   3,   6,   12,  20,  29,  41,  55,  72,  90,  112, 135, 161, 190, 221, 44},
+{1,   3,   7,   13,  21,  31,  44,  58,  75,  93,  115, 138, 164, 192, 222, 43},
+{1,   3,   8,   14,  23,  33,  46,  61,  77,  96,  117, 141, 166, 193, 223, 41},
+{1,   4,   9,   16,  24,  35,  48,  63,  80,  99,  120, 143, 168, 195, 224, 40},
+{1,   4,   10,  17,  26,  37,  51,  66,  83,  102, 123, 145, 170, 197, 225, 39},
+{1,   5,   10,  18,  28,  39,  53,  68,  86,  104, 125, 148, 172, 198, 226, 37},
+{1,   5,   11,  20,  30,  42,  55,  71,  88,  107, 128, 150, 174, 199, 226, 37},
+{2,   6,   12,  21,  31,  44,  58,  73,  91,  110, 130, 152, 176, 201, 227, 36},
+{2,   6,   13,  22,  33,  46,  60,  76,  93,  112, 132, 154, 177, 202, 228, 35},
+{2,   7,   14,  24,  35,  48,  62,  78,  95,  114, 134, 156, 179, 203, 228, 35},
+{2,   8,   15,  25,  37,  50,  64,  80,  98,  116, 137, 158, 180, 204, 229, 33},
+{3,   8,   16,  27,  38,  52,  66,  82,  100, 119, 139, 160, 182, 205, 230, 32},
+{3,   9,   18,  28,  40,  54,  68,  85,  102, 121, 141, 161, 183, 206, 230, 32},
+{3,   10,  19,  29,  42,  55,  71,  87,  104, 123, 143, 163, 185, 207, 231, 31},
+{4,   11,  20,  31,  43,  57,  73,  89,  106, 125, 144, 165, 186, 208, 231, 31},
+{4,   11,  21,  32,  45,  59,  75,  91,  108, 127, 146, 166, 187, 209, 232, 29},
+{4,   12,  22,  34,  47,  61,  77,  93,  110, 129, 148, 168, 189, 210, 232, 29},
+{5,   13,  23,  35,  48,  63,  78,  95,  112, 131, 150, 169, 190, 211, 233, 28},
+{5,   14,  24,  37,  50,  65,  80,  97,  114, 132, 151, 171, 191, 212, 233, 28},
+{5,   15,  26,  38,  52,  67,  82,  99,  116, 134, 153, 172, 192, 212, 233, 28},
+{6,   15,  27,  40,  53,  68,  84,  101, 118, 136, 154, 173, 193, 213, 234, 27},
+{6,   16,  28,  41,  55,  70,  86,  102, 120, 137, 156, 175, 194, 214, 234, 27},
+{7,   17,  29,  42,  57,  72,  88,  104, 121, 139, 157, 176, 195, 215, 235, 25},
+{7,   18,  30,  44,  58,  74,  89,  106, 123, 141, 159, 177, 196, 215, 235, 25},
+{8,   19,  32,  45,  60,  75,  91,  108, 125, 142, 160, 178, 197, 216, 235, 25},
+{8,   20,  33,  47,  61,  77,  93,  109, 126, 144, 161, 180, 198, 217, 236, 24},
+{9,   21,  34,  48,  63,  79,  95,  111, 128, 145, 163, 181, 199, 217, 236, 24},
+{9,   22,  35,  50,  65,  80,  96,  113, 129, 147, 164, 182, 200, 218, 236, 24},
+{10,  22,  36,  51,  66,  82,  98,  114, 131, 148, 165, 183, 201, 218, 237, 23},
+{10,  23,  38,  52,  68,  83,  99,  116, 132, 149, 166, 184, 201, 219, 237, 23},
+{11,  24,  39,  54,  69,  85,  101, 117, 134, 151, 168, 185, 202, 220, 237, 23},
+{11,  25,  40,  55,  71,  86,  102, 119, 135, 152, 169, 186, 203, 220, 238, 21},
+{12,  26,  41,  56,  72,  88,  104, 120, 137, 153, 170, 187, 204, 221, 238, 21},
+{13,  27,  42,  58,  73,  89,  105, 122, 138, 154, 171, 188, 204, 221, 238, 21},
+{13,  28,  43,  59,  75,  91,  107, 123, 139, 156, 172, 188, 205, 222, 238, 21},
+{14,  29,  45,  60,  76,  92,  108, 124, 141, 157, 173, 189, 206, 222, 239, 20},
+{14,  30,  46,  62,  78,  94,  110, 126, 142, 158, 174, 190, 206, 223, 239, 20},
+{15,  31,  47,  63,  79,  95,  111, 127, 143, 159, 175, 191, 207, 223, 239, 20},
+{16,  32,  48,  64,  80,  96,  112, 128, 144, 160, 176, 192, 208, 223, 239, 20},
+{16,  33,  49,  66,  82,  98,  114, 130, 145, 161, 177, 193, 208, 224, 239, 20},
+{17,  34,  50,  67,  83,  99,  115, 131, 147, 162, 178, 193, 209, 224, 240, 19},
+{18,  35,  52,  68,  84,  100, 116, 132, 148, 163, 179, 194, 209, 225, 240, 19},
+{18,  36,  53,  69,  86,  102, 118, 133, 149, 164, 180, 195, 210, 225, 240, 19},
+{19,  37,  54,  71,  87,  103, 119, 134, 150, 165, 180, 196, 211, 225, 240, 19},
+{20,  38,  55,  72,  88,  104, 120, 136, 151, 166, 181, 196, 211, 226, 240, 19},
+{20,  39,  56,  73,  89,  105, 121, 137, 152, 167, 182, 197, 212, 226, 241, 17},
+{21,  40,  57,  74,  91,  107, 122, 138, 153, 168, 183, 198, 212, 227, 241, 17},
+{22,  41,  58,  75,  92,  108, 123, 139, 154, 169, 184, 198, 213, 227, 241, 17},
+{22,  42,  59,  77,  93,  109, 125, 140, 155, 170, 184, 199, 213, 227, 241, 17},
+{23,  43,  61,  78,  94,  110, 126, 141, 156, 171, 185, 199, 214, 228, 241, 17},
+{24,  43,  62,  79,  95,  111, 127, 142, 157, 172, 186, 200, 214, 228, 241, 17},
+{24,  44,  63,  80,  96,  112, 128, 143, 158, 172, 187, 201, 215, 228, 242, 16},
+{25,  45,  64,  81,  98,  114, 129, 144, 159, 173, 187, 201, 215, 228, 242, 16},
+{26,  46,  65,  82,  99,  115, 130, 145, 160, 174, 188, 202, 215, 229, 242, 16},
+{26,  47,  66,  83,  100, 116, 131, 146, 161, 175, 189, 202, 216, 229, 242, 16},
+{27,  48,  67,  84,  101, 117, 132, 147, 161, 176, 189, 203, 216, 229, 242, 16},
+{28,  49,  68,  85,  102, 118, 133, 148, 162, 176, 190, 203, 217, 230, 242, 16},
+{29,  50,  69,  87,  103, 119, 134, 149, 163, 177, 191, 204, 217, 230, 243, 15},
+{29,  51,  70,  88,  104, 120, 135, 150, 164, 178, 191, 204, 217, 230, 243, 15},
+{30,  52,  71,  89,  105, 121, 136, 151, 165, 178, 192, 205, 218, 230, 243, 15},
+{31,  53,  72,  90,  106, 122, 137, 151, 166, 179, 192, 205, 218, 231, 243, 15},
+{31,  54,  73,  91,  107, 123, 138, 152, 166, 180, 193, 206, 219, 231, 243, 15},
+{32,  55,  74,  92,  108, 124, 139, 153, 167, 181, 194, 206, 219, 231, 243, 15},
+{33,  56,  75,  93,  109, 125, 140, 154, 168, 181, 194, 207, 219, 231, 243, 15},
+{34,  56,  76,  94,  110, 126, 141, 155, 169, 182, 195, 207, 220, 232, 243, 15},
+{34,  57,  77,  95,  111, 127, 141, 156, 169, 182, 195, 208, 220, 232, 244, 13},
+{35,  58,  78,  96,  112, 128, 142, 156, 170, 183, 196, 208, 220, 232, 244, 13},
+{36,  59,  79,  97,  113, 129, 143, 157, 171, 184, 196, 209, 221, 232, 244, 13},
+{36,  60,  80,  98,  114, 129, 144, 158, 171, 184, 197, 209, 221, 233, 244, 13},
+{37,  61,  81,  99,  115, 130, 145, 159, 172, 185, 197, 210, 221, 233, 244, 13},
+{38,  62,  82,  99,  116, 131, 146, 159, 173, 186, 198, 210, 222, 233, 244, 13},
+{39,  63,  83,  100, 117, 132, 146, 160, 173, 186, 198, 210, 222, 233, 244, 13},
+{39,  63,  83,  101, 118, 133, 147, 161, 174, 187, 199, 211, 222, 233, 244, 13},
+{40,  64,  84,  102, 119, 134, 148, 162, 175, 187, 199, 211, 222, 234, 244, 13},
+{41,  65,  85,  103, 119, 135, 149, 162, 175, 188, 200, 211, 223, 234, 245, 12},
+{41,  66,  86,  104, 120, 135, 150, 163, 176, 188, 200, 212, 223, 234, 245, 12},
+{42,  67,  87,  105, 121, 136, 150, 164, 177, 189, 201, 212, 223, 234, 245, 12},
+{43,  68,  88,  106, 122, 137, 151, 164, 177, 189, 201, 213, 224, 234, 245, 12},
+{44,  68,  89,  107, 123, 138, 152, 165, 178, 190, 202, 213, 224, 235, 245, 12},
+{44,  69,  90,  107, 124, 139, 152, 166, 178, 190, 202, 213, 224, 235, 245, 12},
+{45,  70,  90,  108, 124, 139, 153, 166, 179, 191, 202, 214, 224, 235, 245, 12},
+{46,  71,  91,  109, 125, 140, 154, 167, 179, 191, 203, 214, 225, 235, 245, 12},
+{46,  72,  92,  110, 126, 141, 155, 168, 180, 192, 203, 214, 225, 235, 245, 12},
+{47,  73,  93,  111, 127, 141, 155, 168, 181, 192, 204, 215, 225, 235, 245, 12},
+{48,  73,  94,  112, 128, 142, 156, 169, 181, 193, 204, 215, 225, 236, 245, 12},
+{48,  74,  95,  112, 128, 143, 157, 169, 182, 193, 205, 215, 226, 236, 245, 12},
+{49,  75,  95,  113, 129, 144, 157, 170, 182, 194, 205, 216, 226, 236, 246, 11},
+{50,  76,  96,  114, 130, 144, 158, 171, 183, 194, 205, 216, 226, 236, 246, 11},
+{51,  76,  97,  115, 131, 145, 159, 171, 183, 195, 206, 216, 226, 236, 246, 11},
+{51,  77,  98,  115, 131, 146, 159, 172, 184, 195, 206, 216, 227, 236, 246, 11},
+{52,  78,  99,  116, 132, 146, 160, 172, 184, 196, 206, 217, 227, 236, 246, 11},
+{53,  79,  99,  117, 133, 147, 160, 173, 185, 196, 207, 217, 227, 237, 246, 11},
+{53,  80,  100, 118, 133, 148, 161, 173, 185, 196, 207, 217, 227, 237, 246, 11},
+{54,  80,  101, 118, 134, 148, 162, 174, 186, 197, 207, 218, 227, 237, 246, 11},
+{55,  81,  102, 119, 135, 149, 162, 175, 186, 197, 208, 218, 228, 237, 246, 11},
+{55,  82,  102, 120, 135, 150, 163, 175, 187, 198, 208, 218, 228, 237, 246, 11},
+{56,  83,  103, 121, 136, 150, 163, 176, 187, 198, 208, 218, 228, 237, 246, 11},
+{57,  83,  104, 121, 137, 151, 164, 176, 188, 198, 209, 219, 228, 237, 246, 11},
+{57,  84,  105, 122, 137, 152, 164, 177, 188, 199, 209, 219, 228, 238, 246, 11},
+{58,  85,  105, 123, 138, 152, 165, 177, 188, 199, 209, 219, 229, 238, 247, 9},
+{59,  85,  106, 123, 139, 153, 166, 178, 189, 200, 210, 219, 229, 238, 247, 9},
+{59,  86,  107, 124, 139, 153, 166, 178, 189, 200, 210, 220, 229, 238, 247, 9},
+{60,  87,  107, 125, 140, 154, 167, 179, 190, 200, 210, 220, 229, 238, 247, 9},
+{61,  88,  108, 125, 141, 155, 167, 179, 190, 201, 211, 220, 229, 238, 247, 9},
+{61,  88,  109, 126, 141, 155, 168, 179, 191, 201, 211, 220, 230, 238, 247, 9},
+{62,  89,  109, 127, 142, 156, 168, 180, 191, 201, 211, 221, 230, 238, 247, 9},
+{62,  90,  110, 127, 143, 156, 169, 180, 191, 202, 212, 221, 230, 239, 247, 9},
+{63,  90,  111, 128, 143, 157, 169, 181, 192, 202, 212, 221, 230, 239, 247, 9},
+{64,  91,  111, 129, 144, 157, 170, 181, 192, 202, 212, 221, 230, 239, 247, 9},
+{64,  92,  112, 129, 144, 158, 170, 182, 193, 203, 212, 222, 230, 239, 247, 9},
+{65,  92,  113, 130, 145, 158, 171, 182, 193, 203, 213, 222, 231, 239, 247, 9},
+{66,  93,  113, 131, 145, 159, 171, 183, 193, 203, 213, 222, 231, 239, 247, 9},
+{66,  94,  114, 131, 146, 159, 172, 183, 194, 204, 213, 222, 231, 239, 247, 9},
+{67,  94,  115, 132, 147, 160, 172, 183, 194, 204, 213, 222, 231, 239, 247, 9},
+{68,  95,  115, 132, 147, 160, 173, 184, 194, 204, 214, 223, 231, 239, 247, 9},
+{68,  96,  116, 133, 148, 161, 173, 184, 195, 205, 214, 223, 231, 240, 247, 9},
+{69,  96,  117, 134, 148, 162, 174, 185, 195, 205, 214, 223, 232, 240, 247, 9},
+{69,  97,  117, 134, 149, 162, 174, 185, 195, 205, 214, 223, 232, 240, 248, 8},
+{70,  97,  118, 135, 149, 162, 174, 186, 196, 206, 215, 223, 232, 240, 248, 8},
+{71,  98,  118, 135, 150, 163, 175, 186, 196, 206, 215, 224, 232, 240, 248, 8},
+{71,  99,  119, 136, 150, 163, 175, 186, 197, 206, 215, 224, 232, 240, 248, 8},
+{72,  99,  120, 136, 151, 164, 176, 187, 197, 206, 215, 224, 232, 240, 248, 8},
+{72,  100, 120, 137, 151, 164, 176, 187, 197, 207, 216, 224, 232, 240, 248, 8},
+{73,  101, 121, 138, 152, 165, 177, 187, 198, 207, 216, 224, 233, 240, 248, 8},
+{74,  101, 121, 138, 153, 165, 177, 188, 198, 207, 216, 225, 233, 240, 248, 8},
+{74,  102, 122, 139, 153, 166, 177, 188, 198, 208, 216, 225, 233, 241, 248, 8},
+{75,  102, 123, 139, 154, 166, 178, 189, 198, 208, 217, 225, 233, 241, 248, 8},
+{75,  103, 123, 140, 154, 167, 178, 189, 199, 208, 217, 225, 233, 241, 248, 8},
+{76,  104, 124, 140, 154, 167, 179, 189, 199, 208, 217, 225, 233, 241, 248, 8},
+{76,  104, 124, 141, 155, 168, 179, 190, 199, 209, 217, 226, 233, 241, 248, 8},
+{77,  105, 125, 141, 155, 168, 179, 190, 200, 209, 218, 226, 234, 241, 248, 8},
+{78,  105, 125, 142, 156, 168, 180, 190, 200, 209, 218, 226, 234, 241, 248, 8},
+{78,  106, 126, 142, 156, 169, 180, 191, 200, 209, 218, 226, 234, 241, 248, 8},
+{79,  106, 126, 143, 157, 169, 181, 191, 201, 210, 218, 226, 234, 241, 248, 8},
+{79,  107, 127, 143, 157, 170, 181, 191, 201, 210, 218, 226, 234, 241, 248, 8},
+{80,  108, 128, 144, 158, 170, 181, 192, 201, 210, 219, 227, 234, 241, 248, 8},
+{80,  108, 128, 144, 158, 171, 182, 192, 201, 210, 219, 227, 234, 241, 248, 8},
+{81,  109, 129, 145, 159, 171, 182, 192, 202, 211, 219, 227, 234, 242, 248, 8},
+{82,  109, 129, 145, 159, 171, 182, 193, 202, 211, 219, 227, 234, 242, 248, 8},
+{82,  110, 130, 146, 160, 172, 183, 193, 202, 211, 219, 227, 235, 242, 248, 8},
+{83,  110, 130, 146, 160, 172, 183, 193, 203, 211, 220, 227, 235, 242, 249, 7},
+{83,  111, 131, 147, 160, 173, 184, 194, 203, 212, 220, 227, 235, 242, 249, 7},
+{84,  111, 131, 147, 161, 173, 184, 194, 203, 212, 220, 228, 235, 242, 249, 7},
+{84,  112, 132, 148, 161, 173, 184, 194, 203, 212, 220, 228, 235, 242, 249, 7},
+{85,  112, 132, 148, 162, 174, 185, 194, 204, 212, 220, 228, 235, 242, 249, 7},
+{85,  113, 133, 149, 162, 174, 185, 195, 204, 212, 220, 228, 235, 242, 249, 7},
+{86,  113, 133, 149, 163, 175, 185, 195, 204, 213, 221, 228, 235, 242, 249, 7},
+{86,  114, 134, 149, 163, 175, 186, 195, 204, 213, 221, 228, 235, 242, 249, 7},
+{87,  115, 134, 150, 163, 175, 186, 196, 205, 213, 221, 228, 236, 242, 249, 7},
+{87,  115, 135, 150, 164, 176, 186, 196, 205, 213, 221, 229, 236, 242, 249, 7},
+{88,  116, 135, 151, 164, 176, 187, 196, 205, 214, 221, 229, 236, 242, 249, 7},
+{88,  116, 136, 151, 165, 176, 187, 197, 205, 214, 222, 229, 236, 243, 249, 7},
+{89,  117, 136, 152, 165, 177, 187, 197, 206, 214, 222, 229, 236, 243, 249, 7},
+{89,  117, 136, 152, 165, 177, 188, 197, 206, 214, 222, 229, 236, 243, 249, 7},
+{90,  118, 137, 153, 166, 177, 188, 197, 206, 214, 222, 229, 236, 243, 249, 7},
+{91,  118, 137, 153, 166, 178, 188, 198, 206, 215, 222, 229, 236, 243, 249, 7},
+{91,  119, 138, 153, 167, 178, 188, 198, 207, 215, 222, 230, 236, 243, 249, 7},
+{92,  119, 138, 154, 167, 178, 189, 198, 207, 215, 223, 230, 236, 243, 249, 7},
+{92,  119, 139, 154, 167, 179, 189, 198, 207, 215, 223, 230, 237, 243, 249, 7},
+{93,  120, 139, 155, 168, 179, 189, 199, 207, 215, 223, 230, 237, 243, 249, 7},
+{93,  120, 140, 155, 168, 179, 190, 199, 208, 216, 223, 230, 237, 243, 249, 7},
+{93,  121, 140, 155, 168, 180, 190, 199, 208, 216, 223, 230, 237, 243, 249, 7},
+{94,  121, 141, 156, 169, 180, 190, 199, 208, 216, 223, 230, 237, 243, 249, 7},
+{94,  122, 141, 156, 169, 180, 191, 200, 208, 216, 223, 230, 237, 243, 249, 7},
+{95,  122, 141, 157, 169, 181, 191, 200, 208, 216, 224, 231, 237, 243, 249, 7},
+{95,  123, 142, 157, 170, 181, 191, 200, 209, 216, 224, 231, 237, 243, 249, 7},
+{96,  123, 142, 157, 170, 181, 191, 200, 209, 217, 224, 231, 237, 243, 249, 7},
+{96,  124, 143, 158, 171, 182, 192, 201, 209, 217, 224, 231, 237, 244, 249, 7},
+{97,  124, 143, 158, 171, 182, 192, 201, 209, 217, 224, 231, 237, 244, 249, 7},
+{97,  125, 143, 159, 171, 182, 192, 201, 209, 217, 224, 231, 238, 244, 249, 7},
+{98,  125, 144, 159, 172, 183, 192, 201, 210, 217, 225, 231, 238, 244, 249, 7},
+{98,  125, 144, 159, 172, 183, 193, 202, 210, 218, 225, 231, 238, 244, 249, 7},
+{99,  126, 145, 160, 172, 183, 193, 202, 210, 218, 225, 231, 238, 244, 250, 5},
+{99,  126, 145, 160, 173, 183, 193, 202, 210, 218, 225, 232, 238, 244, 250, 5},
+{100, 127, 146, 160, 173, 184, 194, 202, 210, 218, 225, 232, 238, 244, 250, 5},
+{100, 127, 146, 161, 173, 184, 194, 203, 211, 218, 225, 232, 238, 244, 250, 5},
+{101, 128, 146, 161, 174, 184, 194, 203, 211, 218, 225, 232, 238, 244, 250, 5},
+{101, 128, 147, 161, 174, 185, 194, 203, 211, 219, 225, 232, 238, 244, 250, 5},
+{101, 128, 147, 162, 174, 185, 195, 203, 211, 219, 226, 232, 238, 244, 250, 5},
+{102, 129, 147, 162, 174, 185, 195, 203, 211, 219, 226, 232, 238, 244, 250, 5},
+{102, 129, 148, 163, 175, 185, 195, 204, 212, 219, 226, 232, 238, 244, 250, 5},
+{103, 130, 148, 163, 175, 186, 195, 204, 212, 219, 226, 232, 239, 244, 250, 5},
+{103, 130, 149, 163, 175, 186, 196, 204, 212, 219, 226, 233, 239, 244, 250, 5},
+{104, 131, 149, 164, 176, 186, 196, 204, 212, 219, 226, 233, 239, 244, 250, 5},
+{104, 131, 149, 164, 176, 187, 196, 205, 212, 220, 226, 233, 239, 244, 250, 5},
+{105, 131, 150, 164, 176, 187, 196, 205, 213, 220, 226, 233, 239, 244, 250, 5},
+{105, 132, 150, 165, 177, 187, 196, 205, 213, 220, 227, 233, 239, 245, 250, 5},
+{105, 132, 150, 165, 177, 187, 197, 205, 213, 220, 227, 233, 239, 245, 250, 5},
+{106, 133, 151, 165, 177, 188, 197, 205, 213, 220, 227, 233, 239, 245, 250, 5},
+{106, 133, 151, 166, 178, 188, 197, 206, 213, 220, 227, 233, 239, 245, 250, 5},
+{107, 133, 152, 166, 178, 188, 197, 206, 213, 221, 227, 233, 239, 245, 250, 5},
+{107, 134, 152, 166, 178, 188, 198, 206, 214, 221, 227, 233, 239, 245, 250, 5},
+{107, 134, 152, 166, 178, 189, 198, 206, 214, 221, 227, 233, 239, 245, 250, 5},
+{108, 134, 153, 167, 179, 189, 198, 206, 214, 221, 227, 234, 239, 245, 250, 5},
+{108, 135, 153, 167, 179, 189, 198, 207, 214, 221, 228, 234, 239, 245, 250, 5},
+{109, 135, 153, 167, 179, 189, 199, 207, 214, 221, 228, 234, 239, 245, 250, 5},
+{109, 136, 154, 168, 180, 190, 199, 207, 214, 221, 228, 234, 240, 245, 250, 5},
+{110, 136, 154, 168, 180, 190, 199, 207, 215, 221, 228, 234, 240, 245, 250, 5},
+{110, 136, 154, 168, 180, 190, 199, 207, 215, 222, 228, 234, 240, 245, 250, 5},
+{110, 137, 155, 169, 180, 190, 199, 208, 215, 222, 228, 234, 240, 245, 250, 5},
+{111, 137, 155, 169, 181, 191, 200, 208, 215, 222, 228, 234, 240, 245, 250, 5},
+{111, 137, 155, 169, 181, 191, 200, 208, 215, 222, 228, 234, 240, 245, 250, 5},
+{112, 138, 156, 170, 181, 191, 200, 208, 215, 222, 228, 234, 240, 245, 250, 5},
+{112, 138, 156, 170, 181, 191, 200, 208, 216, 222, 229, 234, 240, 245, 250, 5},
+{112, 139, 156, 170, 182, 192, 200, 208, 216, 222, 229, 235, 240, 245, 250, 5},
+{113, 139, 157, 170, 182, 192, 201, 209, 216, 223, 229, 235, 240, 245, 250, 5},
+{113, 139, 157, 171, 182, 192, 201, 209, 216, 223, 229, 235, 240, 245, 250, 5},
+{113, 140, 157, 171, 182, 192, 201, 209, 216, 223, 229, 235, 240, 245, 250, 5},
+{114, 140, 158, 171, 183, 193, 201, 209, 216, 223, 229, 235, 240, 245, 250, 5},
+{114, 140, 158, 172, 183, 193, 201, 209, 216, 223, 229, 235, 240, 245, 250, 5},
+{115, 141, 158, 172, 183, 193, 202, 209, 217, 223, 229, 235, 240, 246, 250, 5},
+{115, 141, 159, 172, 183, 193, 202, 210, 217, 223, 229, 235, 240, 246, 250, 5},
+{115, 141, 159, 172, 184, 193, 202, 210, 217, 223, 230, 235, 241, 246, 250, 5},
+{116, 142, 159, 173, 184, 194, 202, 210, 217, 224, 230, 235, 241, 246, 250, 5},
+{116, 142, 159, 173, 184, 194, 202, 210, 217, 224, 230, 235, 241, 246, 250, 5},
+{117, 142, 160, 173, 184, 194, 203, 210, 217, 224, 230, 235, 241, 246, 250, 5},
+{117, 143, 160, 174, 185, 194, 203, 210, 217, 224, 230, 235, 241, 246, 250, 5},
+{117, 143, 160, 174, 185, 195, 203, 211, 218, 224, 230, 236, 241, 246, 251, 4},
+{118, 143, 161, 174, 185, 195, 203, 211, 218, 224, 230, 236, 241, 246, 251, 4},
+{118, 144, 161, 174, 185, 195, 203, 211, 218, 224, 230, 236, 241, 246, 251, 4},
+{118, 144, 161, 175, 186, 195, 204, 211, 218, 224, 230, 236, 241, 246, 251, 4},
+{119, 144, 162, 175, 186, 195, 204, 211, 218, 224, 230, 236, 241, 246, 251, 4},
+{119, 145, 162, 175, 186, 196, 204, 211, 218, 225, 230, 236, 241, 246, 251, 4},
+{119, 145, 162, 175, 186, 196, 204, 212, 218, 225, 231, 236, 241, 246, 251, 4},
+{120, 145, 162, 176, 187, 196, 204, 212, 219, 225, 231, 236, 241, 246, 251, 4},
+{120, 146, 163, 176, 187, 196, 204, 212, 219, 225, 231, 236, 241, 246, 251, 4},
+{120, 146, 163, 176, 187, 196, 205, 212, 219, 225, 231, 236, 241, 246, 251, 4},
+{121, 146, 163, 176, 187, 197, 205, 212, 219, 225, 231, 236, 241, 246, 251, 4},
+{121, 147, 164, 177, 187, 197, 205, 212, 219, 225, 231, 236, 241, 246, 251, 4},
+{122, 147, 164, 177, 188, 197, 205, 213, 219, 225, 231, 236, 241, 246, 251, 4},
+{122, 147, 164, 177, 188, 197, 205, 213, 219, 225, 231, 237, 242, 246, 251, 4},
+{122, 148, 164, 177, 188, 197, 205, 213, 219, 226, 231, 237, 242, 246, 251, 4},
+{123, 148, 165, 178, 188, 198, 206, 213, 220, 226, 231, 237, 242, 246, 251, 4},
+{123, 148, 165, 178, 189, 198, 206, 213, 220, 226, 231, 237, 242, 246, 251, 4},
+{123, 148, 165, 178, 189, 198, 206, 213, 220, 226, 232, 237, 242, 246, 251, 4},
+{124, 149, 165, 178, 189, 198, 206, 213, 220, 226, 232, 237, 242, 246, 251, 4},
+{124, 149, 166, 179, 189, 198, 206, 214, 220, 226, 232, 237, 242, 246, 251, 4},
+{124, 149, 166, 179, 189, 198, 206, 214, 220, 226, 232, 237, 242, 246, 251, 4},
+{125, 150, 166, 179, 190, 199, 207, 214, 220, 226, 232, 237, 242, 247, 251, 4},
+{125, 150, 167, 179, 190, 199, 207, 214, 220, 226, 232, 237, 242, 247, 251, 4},
+{125, 150, 167, 180, 190, 199, 207, 214, 221, 226, 232, 237, 242, 247, 251, 4},
+{126, 151, 167, 180, 190, 199, 207, 214, 221, 227, 232, 237, 242, 247, 251, 4},
+};
+    static const u8 registers[] = {0x7e, 0x7f, 0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d};
+	struct sd *sd = (struct sd *) gspca_dev;
+    u8 i;
+
+	if (sd->sensor == SENSOR_OV767x) return;
+    for (i=0; i<16; ++i)
+    {
+        sccb_reg_write(gspca_dev, registers[i], gamma_table[val][i]);
+    }
+    return;
 }
 
 
 /* this function is called at probe time */
 static int sd_config(struct gspca_dev *gspca_dev,
-		     const struct usb_device_id *id)
+             const struct usb_device_id *id)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
-	struct cam *cam;
+    struct sd *sd = (struct sd *) gspca_dev;
+    struct cam *cam;
 
-	cam = &gspca_dev->cam;
+    cam = &gspca_dev->cam;
 
-	cam->cam_mode = ov772x_mode;
-	cam->nmodes = ARRAY_SIZE(ov772x_mode);
+    cam->cam_mode = ov772x_mode;
+    cam->nmodes = ARRAY_SIZE(ov772x_mode);
 
-	sd->frame_rate = DEFAULT_FRAME_RATE;
+    sd->frame_rate = DEFAULT_FRAME_RATE;
 
-	return 0;
+    return 0;
 }
 
 static int ov534_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct sd *sd = container_of(ctrl->handler, struct sd, ctrl_handler);
-	struct gspca_dev *gspca_dev = &sd->gspca_dev;
+    struct sd *sd = container_of(ctrl->handler, struct sd, ctrl_handler);
+    struct gspca_dev *gspca_dev = &sd->gspca_dev;
 
-	switch (ctrl->id) {
-	case V4L2_CID_AUTOGAIN:
-		gspca_dev->usb_err = 0;
-		if (ctrl->val && sd->gain && gspca_dev->streaming)
-			sd->gain->val = getgain(gspca_dev);
-		return gspca_dev->usb_err;
+    switch (ctrl->id) {
+    case V4L2_CID_AUTOGAIN:
+        gspca_dev->usb_err = 0;
+        if (ctrl->val && sd->gain && gspca_dev->streaming)
+            sd->gain->val = getgain(gspca_dev);
+        return gspca_dev->usb_err;
 
-	case V4L2_CID_EXPOSURE_AUTO:
-		gspca_dev->usb_err = 0;
-		if (ctrl->val == V4L2_EXPOSURE_AUTO && sd->exposure &&
-		    gspca_dev->streaming)
-			sd->exposure->val = getexposure(gspca_dev);
-		return gspca_dev->usb_err;
-	}
-	return -EINVAL;
+    case V4L2_CID_EXPOSURE_AUTO:
+        gspca_dev->usb_err = 0;
+        if (ctrl->val == V4L2_EXPOSURE_AUTO && sd->exposure &&
+            gspca_dev->streaming)
+            sd->exposure->val = getexposure(gspca_dev);
+        return gspca_dev->usb_err;
+    }
+    return -EINVAL;
 }
 
 static int ov534_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct sd *sd = container_of(ctrl->handler, struct sd, ctrl_handler);
-	struct gspca_dev *gspca_dev = &sd->gspca_dev;
+    struct sd *sd = container_of(ctrl->handler, struct sd, ctrl_handler);
+    struct gspca_dev *gspca_dev = &sd->gspca_dev;
 
-	gspca_dev->usb_err = 0;
-	if (!gspca_dev->streaming)
-		return 0;
+    gspca_dev->usb_err = 0;
+    if (!gspca_dev->streaming)
+        return 0;
 
-	switch (ctrl->id) {
-	case V4L2_CID_HUE:
-		sethue(gspca_dev, ctrl->val);
-		break;
-	case V4L2_CID_SATURATION:
-		setsaturation(gspca_dev, ctrl->val);
-		break;
-	case V4L2_CID_BRIGHTNESS:
-		setbrightness(gspca_dev, ctrl->val);
-		break;
-	case V4L2_CID_CONTRAST:
-		setcontrast(gspca_dev, ctrl->val);
-		break;
-	case V4L2_CID_AUTOGAIN:
-	/* case V4L2_CID_GAIN: */
-		setagc(gspca_dev, ctrl->val);
-		if (!gspca_dev->usb_err && !ctrl->val && sd->gain)
-			setgain(gspca_dev, sd->gain->val);
-		break;
-	case V4L2_CID_AUTO_WHITE_BALANCE:
-		setawb(gspca_dev, ctrl->val);
-		break;
-	case V4L2_CID_EXPOSURE_AUTO:
-	/* case V4L2_CID_EXPOSURE: */
-		setaec(gspca_dev, ctrl->val);
-		if (!gspca_dev->usb_err && ctrl->val == V4L2_EXPOSURE_MANUAL &&
-		    sd->exposure)
-			setexposure(gspca_dev, sd->exposure->val);
-		break;
-	case V4L2_CID_SHARPNESS:
-		setsharpness(gspca_dev, ctrl->val);
-		break;
-	case V4L2_CID_HFLIP:
-		sethvflip(gspca_dev, ctrl->val, sd->vflip->val);
-		break;
-	case V4L2_CID_VFLIP:
-		sethvflip(gspca_dev, sd->hflip->val, ctrl->val);
-		break;
-	case V4L2_CID_POWER_LINE_FREQUENCY:
-		setlightfreq(gspca_dev, ctrl->val);
-		break;
-	}
-	return gspca_dev->usb_err;
+    switch (ctrl->id) {
+    case V4L2_CID_HUE:
+        sethue(gspca_dev, ctrl->val);
+        break;
+    case V4L2_CID_SATURATION:
+        setsaturation(gspca_dev, ctrl->val);
+        break;
+    case V4L2_CID_BRIGHTNESS:
+        setbrightness(gspca_dev, ctrl->val);
+        break;
+    case V4L2_CID_CONTRAST:
+        setcontrast(gspca_dev, ctrl->val);
+        break;
+    case V4L2_CID_AUTOGAIN:
+    /* case V4L2_CID_GAIN: */
+        setagc(gspca_dev, ctrl->val);
+        if (!gspca_dev->usb_err && !ctrl->val && sd->gain)
+            setgain(gspca_dev, sd->gain->val);
+        break;
+    case V4L2_CID_AUTO_WHITE_BALANCE:
+        setawb(gspca_dev, ctrl->val);
+        break;
+    case V4L2_CID_EXPOSURE_AUTO:
+    /* case V4L2_CID_EXPOSURE: */
+        setaec(gspca_dev, ctrl->val);
+        if (!gspca_dev->usb_err && ctrl->val == V4L2_EXPOSURE_MANUAL &&
+            sd->exposure)
+            setexposure(gspca_dev, sd->exposure->val);
+        break;
+    case V4L2_CID_SHARPNESS:
+        setsharpness(gspca_dev, ctrl->val);
+        break;
+    case V4L2_CID_HFLIP:
+        sethvflip(gspca_dev, ctrl->val, sd->vflip->val);
+        break;
+    case V4L2_CID_VFLIP:
+        sethvflip(gspca_dev, sd->hflip->val, ctrl->val);
+        break;
+    case V4L2_CID_POWER_LINE_FREQUENCY:
+        setlightfreq(gspca_dev, ctrl->val);
+        break;
+    case V4L2_CID_GAMMA:
+        setgamma(gspca_dev, ctrl->val);
+        break;
+    }
+    return gspca_dev->usb_err;
 }
 
 static const struct v4l2_ctrl_ops ov534_ctrl_ops = {
-	.g_volatile_ctrl = ov534_g_volatile_ctrl,
-	.s_ctrl = ov534_s_ctrl,
+    .g_volatile_ctrl = ov534_g_volatile_ctrl,
+    .s_ctrl = ov534_s_ctrl,
 };
 
 static int sd_init_controls(struct gspca_dev *gspca_dev)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
-	struct v4l2_ctrl_handler *hdl = &sd->ctrl_handler;
-	/* parameters with different values between the supported sensors */
-	int saturation_min;
-	int saturation_max;
-	int saturation_def;
-	int brightness_min;
-	int brightness_max;
-	int brightness_def;
-	int contrast_max;
-	int contrast_def;
-	int exposure_min;
-	int exposure_max;
-	int exposure_def;
-	int hflip_def;
+    struct sd *sd = (struct sd *) gspca_dev;
+    struct v4l2_ctrl_handler *hdl = &sd->ctrl_handler;
+    /* parameters with different values between the supported sensors */
+    int saturation_min;
+    int saturation_max;
+    int saturation_def;
+    int brightness_min;
+    int brightness_max;
+    int brightness_def;
+    int contrast_max;
+    int contrast_def;
+    int exposure_min;
+    int exposure_max;
+    int exposure_def;
+    int hflip_def;
+    int gamma;
 
-	if (sd->sensor == SENSOR_OV767x) {
-		saturation_min = 0,
-		saturation_max = 6,
-		saturation_def = 3,
-		brightness_min = -127;
-		brightness_max = 127;
-		brightness_def = 0;
-		contrast_max = 0x80;
-		contrast_def = 0x40;
-		exposure_min = 0x08;
-		exposure_max = 0x60;
-		exposure_def = 0x13;
-		hflip_def = 1;
-	} else {
-		saturation_min = 0,
-		saturation_max = 255,
-		saturation_def = 64,
-		brightness_min = 0;
-		brightness_max = 255;
-		brightness_def = 0;
-		contrast_max = 255;
-		contrast_def = 32;
-		exposure_min = 0;
-		exposure_max = 255;
-		exposure_def = 120;
-		hflip_def = 0;
-	}
+    if (sd->sensor == SENSOR_OV767x) {
+        saturation_min = 0,
+        saturation_max = 6,
+        saturation_def = 3,
+        brightness_min = -127;
+        brightness_max = 127;
+        brightness_def = 0;
+        contrast_max = 0x80;
+        contrast_def = 0x40;
+        exposure_min = 0x08;
+        exposure_max = 0x60;
+        exposure_def = 0x13;
+        hflip_def = 1;
+    } else {
+        saturation_min = 0,
+        saturation_max = 255,
+        saturation_def = 64,
+        brightness_min = 0;
+        brightness_max = 255;
+        brightness_def = 0;
+        contrast_max = 255;
+        contrast_def = 32;
+        exposure_min = 0;
+        exposure_max = 255;
+        exposure_def = 120;
+        hflip_def = 0;
+        gamma = 128;
+    }
 
-	gspca_dev->vdev.ctrl_handler = hdl;
+    gspca_dev->vdev.ctrl_handler = hdl;
 
-	v4l2_ctrl_handler_init(hdl, 13);
+    v4l2_ctrl_handler_init(hdl, 13);
 
-	if (sd->sensor == SENSOR_OV772x)
-		sd->hue = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
-				V4L2_CID_HUE, -90, 90, 1, 0);
+    if (sd->sensor == SENSOR_OV772x)
+        sd->hue = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
+                V4L2_CID_HUE, -90, 90, 1, 0);
 
-	sd->saturation = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
-			V4L2_CID_SATURATION, saturation_min, saturation_max, 1,
-			saturation_def);
-	sd->brightness = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
-			V4L2_CID_BRIGHTNESS, brightness_min, brightness_max, 1,
-			brightness_def);
-	sd->contrast = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
-			V4L2_CID_CONTRAST, 0, contrast_max, 1, contrast_def);
+    sd->saturation = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
+            V4L2_CID_SATURATION, saturation_min, saturation_max, 1,
+            saturation_def);
+    sd->brightness = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
+            V4L2_CID_BRIGHTNESS, brightness_min, brightness_max, 1,
+            brightness_def);
+    sd->contrast = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
+            V4L2_CID_CONTRAST, 0, contrast_max, 1, contrast_def);
 
-	if (sd->sensor == SENSOR_OV772x) {
-		sd->autogain = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
-				V4L2_CID_AUTOGAIN, 0, 1, 1, 1);
-		sd->gain = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
-				V4L2_CID_GAIN, 0, 63, 1, 20);
-	}
+    if (sd->sensor == SENSOR_OV772x) {
+        sd->autogain = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
+                V4L2_CID_AUTOGAIN, 0, 1, 1, 1);
+        sd->gain = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
+                V4L2_CID_GAIN, 0, 63, 1, 20);
+    }
 
-	sd->autoexposure = v4l2_ctrl_new_std_menu(hdl, &ov534_ctrl_ops,
-			V4L2_CID_EXPOSURE_AUTO,
-			V4L2_EXPOSURE_MANUAL, 0,
-			V4L2_EXPOSURE_AUTO);
-	sd->exposure = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
-			V4L2_CID_EXPOSURE, exposure_min, exposure_max, 1,
-			exposure_def);
+    sd->autoexposure = v4l2_ctrl_new_std_menu(hdl, &ov534_ctrl_ops,
+            V4L2_CID_EXPOSURE_AUTO,
+            V4L2_EXPOSURE_MANUAL, 0,
+            V4L2_EXPOSURE_AUTO);
+    sd->exposure = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
+            V4L2_CID_EXPOSURE, exposure_min, exposure_max, 1,
+            exposure_def);
 
-	sd->autowhitebalance = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
-			V4L2_CID_AUTO_WHITE_BALANCE, 0, 1, 1, 1);
+    sd->autowhitebalance = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
+            V4L2_CID_AUTO_WHITE_BALANCE, 0, 1, 1, 1);
 
-	if (sd->sensor == SENSOR_OV772x)
-		sd->sharpness = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
-				V4L2_CID_SHARPNESS, 0, 63, 1, 0);
+    if (sd->sensor == SENSOR_OV772x)
+        sd->sharpness = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
+                V4L2_CID_SHARPNESS, 0, 63, 1, 0);
 
-	sd->hflip = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
-			V4L2_CID_HFLIP, 0, 1, 1, hflip_def);
-	sd->vflip = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
-			V4L2_CID_VFLIP, 0, 1, 1, 0);
-	sd->plfreq = v4l2_ctrl_new_std_menu(hdl, &ov534_ctrl_ops,
-			V4L2_CID_POWER_LINE_FREQUENCY,
-			V4L2_CID_POWER_LINE_FREQUENCY_50HZ, 0,
-			V4L2_CID_POWER_LINE_FREQUENCY_DISABLED);
+    sd->hflip = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
+            V4L2_CID_HFLIP, 0, 1, 1, hflip_def);
+    sd->vflip = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
+            V4L2_CID_VFLIP, 0, 1, 1, 0);
+    sd->plfreq = v4l2_ctrl_new_std_menu(hdl, &ov534_ctrl_ops,
+            V4L2_CID_POWER_LINE_FREQUENCY,
+            V4L2_CID_POWER_LINE_FREQUENCY_50HZ, 0,
+            V4L2_CID_POWER_LINE_FREQUENCY_DISABLED);
+    sd->gamma = v4l2_ctrl_new_std(hdl, &ov534_ctrl_ops,
+            V4L2_CID_GAMMA, 0, 255, 1, 128);
 
-	if (hdl->error) {
-		pr_err("Could not initialize controls\n");
-		return hdl->error;
-	}
+    if (hdl->error) {
+        pr_err("Could not initialize controls\n");
+        return hdl->error;
+    }
 
-	if (sd->sensor == SENSOR_OV772x)
-		v4l2_ctrl_auto_cluster(2, &sd->autogain, 0, true);
+    if (sd->sensor == SENSOR_OV772x)
+        v4l2_ctrl_auto_cluster(2, &sd->autogain, 0, true);
 
-	v4l2_ctrl_auto_cluster(2, &sd->autoexposure, V4L2_EXPOSURE_MANUAL,
-			       true);
+    v4l2_ctrl_auto_cluster(2, &sd->autoexposure, V4L2_EXPOSURE_MANUAL,
+                   true);
 
-	return 0;
+    return 0;
 }
 
 /* this function is called at probe and resume time */
 static int sd_init(struct gspca_dev *gspca_dev)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
-	u16 sensor_id;
-	static const struct reg_array bridge_init[NSENSORS] = {
-	[SENSOR_OV767x] = {bridge_init_767x, ARRAY_SIZE(bridge_init_767x)},
-	[SENSOR_OV772x] = {bridge_init_772x, ARRAY_SIZE(bridge_init_772x)},
-	};
-	static const struct reg_array sensor_init[NSENSORS] = {
-	[SENSOR_OV767x] = {sensor_init_767x, ARRAY_SIZE(sensor_init_767x)},
-	[SENSOR_OV772x] = {sensor_init_772x, ARRAY_SIZE(sensor_init_772x)},
-	};
+    struct sd *sd = (struct sd *) gspca_dev;
+    u16 sensor_id;
+    static const struct reg_array bridge_init[NSENSORS] = {
+    [SENSOR_OV767x] = {bridge_init_767x, ARRAY_SIZE(bridge_init_767x)},
+    [SENSOR_OV772x] = {bridge_init_772x, ARRAY_SIZE(bridge_init_772x)},
+    };
+    static const struct reg_array sensor_init[NSENSORS] = {
+    [SENSOR_OV767x] = {sensor_init_767x, ARRAY_SIZE(sensor_init_767x)},
+    [SENSOR_OV772x] = {sensor_init_772x, ARRAY_SIZE(sensor_init_772x)},
+    };
 
-	/* reset bridge */
-	ov534_reg_write(gspca_dev, 0xe7, 0x3a);
-	ov534_reg_write(gspca_dev, 0xe0, 0x08);
-	msleep(100);
+    /* reset bridge */
+    ov534_reg_write(gspca_dev, 0xe7, 0x3a);
+    ov534_reg_write(gspca_dev, 0xe0, 0x08);
+    msleep(100);
 
-	/* initialize the sensor address */
-	ov534_reg_write(gspca_dev, OV534_REG_ADDRESS, 0x42);
+    /* initialize the sensor address */
+    ov534_reg_write(gspca_dev, OV534_REG_ADDRESS, 0x42);
 
-	/* reset sensor */
-	sccb_reg_write(gspca_dev, 0x12, 0x80);
-	msleep(10);
+    /* reset sensor */
+    sccb_reg_write(gspca_dev, 0x12, 0x80);
+    msleep(10);
 
-	/* probe the sensor */
-	sccb_reg_read(gspca_dev, 0x0a);
-	sensor_id = sccb_reg_read(gspca_dev, 0x0a) << 8;
-	sccb_reg_read(gspca_dev, 0x0b);
-	sensor_id |= sccb_reg_read(gspca_dev, 0x0b);
-	PDEBUG(D_PROBE, "Sensor ID: %04x", sensor_id);
+    /* probe the sensor */
+    sccb_reg_read(gspca_dev, 0x0a);
+    sensor_id = sccb_reg_read(gspca_dev, 0x0a) << 8;
+    sccb_reg_read(gspca_dev, 0x0b);
+    sensor_id |= sccb_reg_read(gspca_dev, 0x0b);
+    PDEBUG(D_PROBE, "Sensor ID: %04x", sensor_id);
 
-	if ((sensor_id & 0xfff0) == 0x7670) {
-		sd->sensor = SENSOR_OV767x;
-		gspca_dev->cam.cam_mode = ov767x_mode;
-		gspca_dev->cam.nmodes = ARRAY_SIZE(ov767x_mode);
-	} else {
-		sd->sensor = SENSOR_OV772x;
-		gspca_dev->cam.bulk = 1;
-		gspca_dev->cam.bulk_size = 16384;
-		gspca_dev->cam.bulk_nurbs = 2;
-		gspca_dev->cam.mode_framerates = ov772x_framerates;
-	}
+    if ((sensor_id & 0xfff0) == 0x7670) {
+        sd->sensor = SENSOR_OV767x;
+        gspca_dev->cam.cam_mode = ov767x_mode;
+        gspca_dev->cam.nmodes = ARRAY_SIZE(ov767x_mode);
+    } else {
+        sd->sensor = SENSOR_OV772x;
+        gspca_dev->cam.bulk = 1;
+        gspca_dev->cam.bulk_size = 16384;
+        gspca_dev->cam.bulk_nurbs = 2;
+        gspca_dev->cam.mode_framerates = ov772x_framerates;
+    }
 
-	/* initialize */
-	reg_w_array(gspca_dev, bridge_init[sd->sensor].val,
-			bridge_init[sd->sensor].len);
-	ov534_set_led(gspca_dev, 1);
-	sccb_w_array(gspca_dev, sensor_init[sd->sensor].val,
-			sensor_init[sd->sensor].len);
+    /* initialize */
+    reg_w_array(gspca_dev, bridge_init[sd->sensor].val,
+            bridge_init[sd->sensor].len);
+    ov534_set_led(gspca_dev, 1);
+    sccb_w_array(gspca_dev, sensor_init[sd->sensor].val,
+            sensor_init[sd->sensor].len);
 
-	sd_stopN(gspca_dev);
-/*	set_frame_rate(gspca_dev);	*/
+    sd_stopN(gspca_dev);
+/*  set_frame_rate(gspca_dev);  */
 
-	return gspca_dev->usb_err;
+    return gspca_dev->usb_err;
 }
 
 static int sd_start(struct gspca_dev *gspca_dev)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
-	int mode;
-	static const struct reg_array bridge_start[NSENSORS][2] = {
-	[SENSOR_OV767x] = {{bridge_start_qvga_767x,
-					ARRAY_SIZE(bridge_start_qvga_767x)},
-			{bridge_start_vga_767x,
-					ARRAY_SIZE(bridge_start_vga_767x)}},
-	[SENSOR_OV772x] = {{bridge_start_qvga_772x,
-					ARRAY_SIZE(bridge_start_qvga_772x)},
-			{bridge_start_vga_772x,
-					ARRAY_SIZE(bridge_start_vga_772x)}},
-	};
-	static const struct reg_array sensor_start[NSENSORS][2] = {
-	[SENSOR_OV767x] = {{sensor_start_qvga_767x,
-					ARRAY_SIZE(sensor_start_qvga_767x)},
-			{sensor_start_vga_767x,
-					ARRAY_SIZE(sensor_start_vga_767x)}},
-	[SENSOR_OV772x] = {{sensor_start_qvga_772x,
-					ARRAY_SIZE(sensor_start_qvga_772x)},
-			{sensor_start_vga_772x,
-					ARRAY_SIZE(sensor_start_vga_772x)}},
-	};
+    struct sd *sd = (struct sd *) gspca_dev;
+    int mode;
+    static const struct reg_array bridge_start[NSENSORS][2] = {
+    [SENSOR_OV767x] = {{bridge_start_qvga_767x,
+                    ARRAY_SIZE(bridge_start_qvga_767x)},
+            {bridge_start_vga_767x,
+                    ARRAY_SIZE(bridge_start_vga_767x)}},
+    [SENSOR_OV772x] = {{bridge_start_qvga_772x,
+                    ARRAY_SIZE(bridge_start_qvga_772x)},
+            {bridge_start_vga_772x,
+                    ARRAY_SIZE(bridge_start_vga_772x)}},
+    };
+    static const struct reg_array sensor_start[NSENSORS][2] = {
+    [SENSOR_OV767x] = {{sensor_start_qvga_767x,
+                    ARRAY_SIZE(sensor_start_qvga_767x)},
+            {sensor_start_vga_767x,
+                    ARRAY_SIZE(sensor_start_vga_767x)}},
+    [SENSOR_OV772x] = {{sensor_start_qvga_772x,
+                    ARRAY_SIZE(sensor_start_qvga_772x)},
+            {sensor_start_vga_772x,
+                    ARRAY_SIZE(sensor_start_vga_772x)}},
+    };
 
-	/* (from ms-win trace) */
-	if (sd->sensor == SENSOR_OV767x)
-		sccb_reg_write(gspca_dev, 0x1e, 0x04);
-					/* black sun enable ? */
+    /* (from ms-win trace) */
+    if (sd->sensor == SENSOR_OV767x)
+        sccb_reg_write(gspca_dev, 0x1e, 0x04);
+                    /* black sun enable ? */
 
-	mode = gspca_dev->curr_mode;	/* 0: 320x240, 1: 640x480 */
-	reg_w_array(gspca_dev, bridge_start[sd->sensor][mode].val,
-				bridge_start[sd->sensor][mode].len);
-	sccb_w_array(gspca_dev, sensor_start[sd->sensor][mode].val,
-				sensor_start[sd->sensor][mode].len);
+    mode = gspca_dev->curr_mode;    /* 0: 320x240, 1: 640x480 */
+    reg_w_array(gspca_dev, bridge_start[sd->sensor][mode].val,
+                bridge_start[sd->sensor][mode].len);
+    sccb_w_array(gspca_dev, sensor_start[sd->sensor][mode].val,
+                sensor_start[sd->sensor][mode].len);
 
-	set_frame_rate(gspca_dev);
+    set_frame_rate(gspca_dev);
 
-	if (sd->hue)
-		sethue(gspca_dev, v4l2_ctrl_g_ctrl(sd->hue));
-	setsaturation(gspca_dev, v4l2_ctrl_g_ctrl(sd->saturation));
-	if (sd->autogain)
-		setagc(gspca_dev, v4l2_ctrl_g_ctrl(sd->autogain));
-	setawb(gspca_dev, v4l2_ctrl_g_ctrl(sd->autowhitebalance));
-	setaec(gspca_dev, v4l2_ctrl_g_ctrl(sd->autoexposure));
-	if (sd->gain)
-		setgain(gspca_dev, v4l2_ctrl_g_ctrl(sd->gain));
-	setexposure(gspca_dev, v4l2_ctrl_g_ctrl(sd->exposure));
-	setbrightness(gspca_dev, v4l2_ctrl_g_ctrl(sd->brightness));
-	setcontrast(gspca_dev, v4l2_ctrl_g_ctrl(sd->contrast));
-	if (sd->sharpness)
-		setsharpness(gspca_dev, v4l2_ctrl_g_ctrl(sd->sharpness));
-	sethvflip(gspca_dev, v4l2_ctrl_g_ctrl(sd->hflip),
-		  v4l2_ctrl_g_ctrl(sd->vflip));
-	setlightfreq(gspca_dev, v4l2_ctrl_g_ctrl(sd->plfreq));
+    if (sd->hue)
+        sethue(gspca_dev, v4l2_ctrl_g_ctrl(sd->hue));
+    setsaturation(gspca_dev, v4l2_ctrl_g_ctrl(sd->saturation));
+    if (sd->autogain)
+        setagc(gspca_dev, v4l2_ctrl_g_ctrl(sd->autogain));
+    setawb(gspca_dev, v4l2_ctrl_g_ctrl(sd->autowhitebalance));
+    setaec(gspca_dev, v4l2_ctrl_g_ctrl(sd->autoexposure));
+    if (sd->gain)
+        setgain(gspca_dev, v4l2_ctrl_g_ctrl(sd->gain));
+    setexposure(gspca_dev, v4l2_ctrl_g_ctrl(sd->exposure));
+    setbrightness(gspca_dev, v4l2_ctrl_g_ctrl(sd->brightness));
+    setcontrast(gspca_dev, v4l2_ctrl_g_ctrl(sd->contrast));
+    if (sd->sharpness)
+        setsharpness(gspca_dev, v4l2_ctrl_g_ctrl(sd->sharpness));
+    sethvflip(gspca_dev, v4l2_ctrl_g_ctrl(sd->hflip),
+          v4l2_ctrl_g_ctrl(sd->vflip));
+    setlightfreq(gspca_dev, v4l2_ctrl_g_ctrl(sd->plfreq));
+    setgamma(gspca_dev, v4l2_ctrl_g_ctrl(sd->gamma));
 
-	ov534_set_led(gspca_dev, 1);
-	ov534_reg_write(gspca_dev, 0xe0, 0x00);
-	return gspca_dev->usb_err;
+    ov534_set_led(gspca_dev, 1);
+    ov534_reg_write(gspca_dev, 0xe0, 0x00);
+    return gspca_dev->usb_err;
 }
 
 static void sd_stopN(struct gspca_dev *gspca_dev)
 {
-	ov534_reg_write(gspca_dev, 0xe0, 0x09);
-	ov534_set_led(gspca_dev, 0);
+    ov534_reg_write(gspca_dev, 0xe0, 0x09);
+    ov534_set_led(gspca_dev, 0);
 }
 
 /* Values for bmHeaderInfo (Video and Still Image Payload Headers, 2.4.3.3) */
-#define UVC_STREAM_EOH	(1 << 7)
-#define UVC_STREAM_ERR	(1 << 6)
-#define UVC_STREAM_STI	(1 << 5)
-#define UVC_STREAM_RES	(1 << 4)
-#define UVC_STREAM_SCR	(1 << 3)
-#define UVC_STREAM_PTS	(1 << 2)
-#define UVC_STREAM_EOF	(1 << 1)
-#define UVC_STREAM_FID	(1 << 0)
+#define UVC_STREAM_EOH  (1 << 7)
+#define UVC_STREAM_ERR  (1 << 6)
+#define UVC_STREAM_STI  (1 << 5)
+#define UVC_STREAM_RES  (1 << 4)
+#define UVC_STREAM_SCR  (1 << 3)
+#define UVC_STREAM_PTS  (1 << 2)
+#define UVC_STREAM_EOF  (1 << 1)
+#define UVC_STREAM_FID  (1 << 0)
 
 static void sd_pkt_scan(struct gspca_dev *gspca_dev,
-			u8 *data, int len)
+            u8 *data, int len)
 {
-	struct sd *sd = (struct sd *) gspca_dev;
-	__u32 this_pts;
-	u16 this_fid;
-	int remaining_len = len;
-	int payload_len;
+    struct sd *sd = (struct sd *) gspca_dev;
+    __u32 this_pts;
+    u16 this_fid;
+    int remaining_len = len;
+    int payload_len;
 
-	payload_len = gspca_dev->cam.bulk ? 2048 : 2040;
-	do {
-		len = min(remaining_len, payload_len);
+    payload_len = gspca_dev->cam.bulk ? 2048 : 2040;
+    do {
+        len = min(remaining_len, payload_len);
 
-		/* Payloads are prefixed with a UVC-style header.  We
-		   consider a frame to start when the FID toggles, or the PTS
-		   changes.  A frame ends when EOF is set, and we've received
-		   the correct number of bytes. */
+        /* Payloads are prefixed with a UVC-style header.  We
+           consider a frame to start when the FID toggles, or the PTS
+           changes.  A frame ends when EOF is set, and we've received
+           the correct number of bytes. */
 
-		/* Verify UVC header.  Header length is always 12 */
-		if (data[0] != 12 || len < 12) {
-			PDEBUG(D_PACK, "bad header");
-			goto discard;
-		}
+        /* Verify UVC header.  Header length is always 12 */
+        if (data[0] != 12 || len < 12) {
+            PDEBUG(D_PACK, "bad header");
+            goto discard;
+        }
 
-		/* Check errors */
-		if (data[1] & UVC_STREAM_ERR) {
-			PDEBUG(D_PACK, "payload error");
-			goto discard;
-		}
+        /* Check errors */
+        if (data[1] & UVC_STREAM_ERR) {
+            PDEBUG(D_PACK, "payload error");
+            goto discard;
+        }
 
-		/* Extract PTS and FID */
-		if (!(data[1] & UVC_STREAM_PTS)) {
-			PDEBUG(D_PACK, "PTS not present");
-			goto discard;
-		}
-		this_pts = (data[5] << 24) | (data[4] << 16)
-						| (data[3] << 8) | data[2];
-		this_fid = (data[1] & UVC_STREAM_FID) ? 1 : 0;
+        /* Extract PTS and FID */
+        if (!(data[1] & UVC_STREAM_PTS)) {
+            PDEBUG(D_PACK, "PTS not present");
+            goto discard;
+        }
+        this_pts = (data[5] << 24) | (data[4] << 16)
+                        | (data[3] << 8) | data[2];
+        this_fid = (data[1] & UVC_STREAM_FID) ? 1 : 0;
 
-		/* If PTS or FID has changed, start a new frame. */
-		if (this_pts != sd->last_pts || this_fid != sd->last_fid) {
-			if (gspca_dev->last_packet_type == INTER_PACKET)
-				gspca_frame_add(gspca_dev, LAST_PACKET,
-						NULL, 0);
-			sd->last_pts = this_pts;
-			sd->last_fid = this_fid;
-			gspca_frame_add(gspca_dev, FIRST_PACKET,
-					data + 12, len - 12);
-		/* If this packet is marked as EOF, end the frame */
-		} else if (data[1] & UVC_STREAM_EOF) {
-			sd->last_pts = 0;
-			if (gspca_dev->pixfmt.pixelformat == V4L2_PIX_FMT_YUYV
-			 && gspca_dev->image_len + len - 12 !=
-				   gspca_dev->pixfmt.width *
-					gspca_dev->pixfmt.height * 2) {
-				PDEBUG(D_PACK, "wrong sized frame");
-				goto discard;
-			}
-			gspca_frame_add(gspca_dev, LAST_PACKET,
-					data + 12, len - 12);
-		} else {
+        /* If PTS or FID has changed, start a new frame. */
+        if (this_pts != sd->last_pts || this_fid != sd->last_fid) {
+            if (gspca_dev->last_packet_type == INTER_PACKET)
+                gspca_frame_add(gspca_dev, LAST_PACKET,
+                        NULL, 0);
+            sd->last_pts = this_pts;
+            sd->last_fid = this_fid;
+            gspca_frame_add(gspca_dev, FIRST_PACKET,
+                    data + 12, len - 12);
+        /* If this packet is marked as EOF, end the frame */
+        } else if (data[1] & UVC_STREAM_EOF) {
+            sd->last_pts = 0;
+            if (gspca_dev->pixfmt.pixelformat == V4L2_PIX_FMT_YUYV
+             && gspca_dev->image_len + len - 12 !=
+                   gspca_dev->pixfmt.width *
+                    gspca_dev->pixfmt.height * 2) {
+                PDEBUG(D_PACK, "wrong sized frame");
+                goto discard;
+            }
+            gspca_frame_add(gspca_dev, LAST_PACKET,
+                    data + 12, len - 12);
+        } else {
 
-			/* Add the data from this payload */
-			gspca_frame_add(gspca_dev, INTER_PACKET,
-					data + 12, len - 12);
-		}
+            /* Add the data from this payload */
+            gspca_frame_add(gspca_dev, INTER_PACKET,
+                    data + 12, len - 12);
+        }
 
-		/* Done this payload */
-		goto scan_next;
+        /* Done this payload */
+        goto scan_next;
 
 discard:
-		/* Discard data until a new frame starts. */
-		gspca_dev->last_packet_type = DISCARD_PACKET;
+        /* Discard data until a new frame starts. */
+        gspca_dev->last_packet_type = DISCARD_PACKET;
 
 scan_next:
-		remaining_len -= len;
-		data += len;
-	} while (remaining_len > 0);
+        remaining_len -= len;
+        data += len;
+    } while (remaining_len > 0);
 }
 
 /* get stream parameters (framerate) */
 static void sd_get_streamparm(struct gspca_dev *gspca_dev,
-			     struct v4l2_streamparm *parm)
+                 struct v4l2_streamparm *parm)
 {
-	struct v4l2_captureparm *cp = &parm->parm.capture;
-	struct v4l2_fract *tpf = &cp->timeperframe;
-	struct sd *sd = (struct sd *) gspca_dev;
+    struct v4l2_captureparm *cp = &parm->parm.capture;
+    struct v4l2_fract *tpf = &cp->timeperframe;
+    struct sd *sd = (struct sd *) gspca_dev;
 
-	cp->capability |= V4L2_CAP_TIMEPERFRAME;
-	tpf->numerator = 1;
-	tpf->denominator = sd->frame_rate;
+    cp->capability |= V4L2_CAP_TIMEPERFRAME;
+    tpf->numerator = 1;
+    tpf->denominator = sd->frame_rate;
 }
 
 /* set stream parameters (framerate) */
 static void sd_set_streamparm(struct gspca_dev *gspca_dev,
-			     struct v4l2_streamparm *parm)
+                 struct v4l2_streamparm *parm)
 {
-	struct v4l2_captureparm *cp = &parm->parm.capture;
-	struct v4l2_fract *tpf = &cp->timeperframe;
-	struct sd *sd = (struct sd *) gspca_dev;
+    struct v4l2_captureparm *cp = &parm->parm.capture;
+    struct v4l2_fract *tpf = &cp->timeperframe;
+    struct sd *sd = (struct sd *) gspca_dev;
 
-	if (tpf->numerator == 0 || tpf->denominator == 0)
-		sd->frame_rate = DEFAULT_FRAME_RATE;
-	else
-		sd->frame_rate = tpf->denominator / tpf->numerator;
+    if (tpf->numerator == 0 || tpf->denominator == 0)
+        sd->frame_rate = DEFAULT_FRAME_RATE;
+    else
+        sd->frame_rate = tpf->denominator / tpf->numerator;
 
-	if (gspca_dev->streaming)
-		set_frame_rate(gspca_dev);
+    if (gspca_dev->streaming)
+        set_frame_rate(gspca_dev);
 
-	/* Return the actual framerate */
-	tpf->numerator = 1;
-	tpf->denominator = sd->frame_rate;
+    /* Return the actual framerate */
+    tpf->numerator = 1;
+    tpf->denominator = sd->frame_rate;
 }
 
 /* sub-driver description */
 static const struct sd_desc sd_desc = {
-	.name     = MODULE_NAME,
-	.config   = sd_config,
-	.init     = sd_init,
-	.init_controls = sd_init_controls,
-	.start    = sd_start,
-	.stopN    = sd_stopN,
-	.pkt_scan = sd_pkt_scan,
-	.get_streamparm = sd_get_streamparm,
-	.set_streamparm = sd_set_streamparm,
+    .name     = MODULE_NAME,
+    .config   = sd_config,
+    .init     = sd_init,
+    .init_controls = sd_init_controls,
+    .start    = sd_start,
+    .stopN    = sd_stopN,
+    .pkt_scan = sd_pkt_scan,
+    .get_streamparm = sd_get_streamparm,
+    .set_streamparm = sd_set_streamparm,
 };
 
 /* -- module initialisation -- */
 static const struct usb_device_id device_table[] = {
-	{USB_DEVICE(0x1415, 0x2000)},
-	{USB_DEVICE(0x06f8, 0x3002)},
-	{}
+    {USB_DEVICE(0x1415, 0x2000)},
+    {USB_DEVICE(0x06f8, 0x3002)},
+    {}
 };
 
 MODULE_DEVICE_TABLE(usb, device_table);
@@ -1526,19 +1807,19 @@ MODULE_DEVICE_TABLE(usb, device_table);
 /* -- device connect -- */
 static int sd_probe(struct usb_interface *intf, const struct usb_device_id *id)
 {
-	return gspca_dev_probe(intf, id, &sd_desc, sizeof(struct sd),
-				THIS_MODULE);
+    return gspca_dev_probe(intf, id, &sd_desc, sizeof(struct sd),
+                THIS_MODULE);
 }
 
 static struct usb_driver sd_driver = {
-	.name       = MODULE_NAME,
-	.id_table   = device_table,
-	.probe      = sd_probe,
-	.disconnect = gspca_disconnect,
+    .name       = MODULE_NAME,
+    .id_table   = device_table,
+    .probe      = sd_probe,
+    .disconnect = gspca_disconnect,
 #ifdef CONFIG_PM
-	.suspend    = gspca_suspend,
-	.resume     = gspca_resume,
-	.reset_resume = gspca_resume,
+    .suspend    = gspca_suspend,
+    .resume     = gspca_resume,
+    .reset_resume = gspca_resume,
 #endif
 };
 
