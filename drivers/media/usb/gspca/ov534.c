@@ -81,7 +81,8 @@ struct sd {
 
 	__u32 last_pts;
 	u16 last_fid;
-	u8 frame_rate;
+	__u32 frame_rate_numerator;
+	__u32 frame_rate_denominator;
 
 	u8 sensor;
 };
@@ -133,8 +134,9 @@ static const struct v4l2_pix_format ov767x_mode[] = {
 		.colorspace = V4L2_COLORSPACE_JPEG},
 };
 
-static const u8 qvga_rates[] = {187, 150, 137, 125, 100, 75, 60, 50, 37, 30};
-static const u8 vga_rates[] = {60, 50, 40, 30, 15};
+static const u8 qvga_rates[] = {187, 150, 137, 125, 100, 90, 75, 60, 50, 40, 37, 30, 17, 15, 12, 10, 7, 5, 3, 2};
+static const u8 vga_rates[] = {75, 60, 50, 40, 30, 25, 20, 15, 10, 8, 5, 3, 2, 1};
+static const struct v4l2_fract vga_fract_rates[] = {{10,9}, {10,8}, {10,7}, {10,6}, {10,5}, {10,4}, {10,3}, {10,2}, {10,1}};
 
 static const struct framerates ov772x_framerates[] = {
 	{ /* 320x240 */
@@ -144,6 +146,8 @@ static const struct framerates ov772x_framerates[] = {
 	{ /* 640x480 */
 		.rates = vga_rates,
 		.nrates = ARRAY_SIZE(vga_rates),
+		.fract_rates = vga_fract_rates,
+		.nfract_rates = ARRAY_SIZE(vga_fract_rates),
 	},
 };
 
@@ -919,31 +923,60 @@ static void set_frame_rate(struct gspca_dev *gspca_dev)
 	struct sd *sd = (struct sd *) gspca_dev;
 	int i;
 	struct rate_s {
-		u8 fps;
+		double fps;
+		__u32 fps_numerator;
+		__u32 fps_denominator;
 		u8 r11;
 		u8 r0d;
 		u8 re5;
 	};
 	const struct rate_s *r;
 	static const struct rate_s rate_0[] = {	/* 640x480 */
-		{60, 0x01, 0xc1, 0x04},
-		{50, 0x01, 0x41, 0x02},
-		{40, 0x02, 0xc1, 0x04},
-		{30, 0x04, 0x81, 0x02},
-		{15, 0x03, 0x41, 0x04},
+		{75, 1, 75, 0x01, 0x81, 0x02}, /* 75 FPS or below: video is valid */
+		{60, 1, 60, 0x00, 0x41, 0x04},
+		{50, 1, 50, 0x01, 0x41, 0x02},
+		{40, 1, 40, 0x02, 0xc1, 0x04},
+		{30, 1, 30, 0x04, 0x81, 0x02},
+		{25, 1, 25, 0x00, 0x01, 0x02},
+		{20, 1, 20, 0x04, 0x41, 0x02},
+		{15, 1, 15, 0x09, 0x81, 0x02},
+		{10, 1, 10, 0x09, 0x41, 0x02},
+		{8, 1, 8, 0x02, 0x01, 0x02},
+		{5, 1, 5, 0x04, 0x01, 0x02},
+		{3, 1, 3, 0x06, 0x01, 0x02},
+		{2, 1, 2, 0x09, 0x01, 0x02},
+		{1, 1, 1, 0x18, 0x01, 0x02},
+		{0.9, 10, 9, 0x31, 0x81, 0x09},
+		{0.8, 10, 8, 0x2e, 0x41, 0x07},
+		{0.7, 10, 7, 0x3d, 0x41, 0x06},
+		{0.6, 10, 6, 0x18, 0x01, 0x04},
+		{0.5, 10, 5, 0x31, 0x01, 0x02},
+		{0.4, 10, 4, 0x2e, 0x01, 0x03},
+		{0.3, 10, 3, 0x31, 0x01, 0x04},
+		{0.2, 10, 2, 0x2b, 0x01, 0x08},
+		{0.1, 10, 1, 0x3f, 0x01, 0x0a},
 	};
 	static const struct rate_s rate_1[] = {	/* 320x240 */
-/*		{205, 0x01, 0xc1, 0x02},  * 205 FPS: video is partly corrupt */
-		{187, 0x01, 0x81, 0x02}, /* 187 FPS or below: video is valid */
-		{150, 0x01, 0xc1, 0x04},
-		{137, 0x02, 0xc1, 0x02},
-		{125, 0x02, 0x81, 0x02},
-		{100, 0x02, 0xc1, 0x04},
-		{75, 0x03, 0xc1, 0x04},
-		{60, 0x04, 0xc1, 0x04},
-		{50, 0x02, 0x41, 0x04},
-		{37, 0x03, 0x41, 0x04},
-		{30, 0x04, 0x41, 0x04},
+		{187, 1, 187, 0x01, 0x81, 0x02}, /* 187 FPS or below: video is valid */
+		{150, 1, 150, 0x00, 0x41, 0x04},
+		{137, 1, 137, 0x02, 0xc1, 0x02},
+		{125, 1, 125, 0x01, 0x41, 0x02},
+		{100, 1, 100, 0x02, 0xc1, 0x04},
+		{90, 1, 90, 0x03, 0x81, 0x02},
+		{75, 1, 75, 0x04, 0x81, 0x02},
+		{60, 1, 60, 0x04, 0xc1, 0x04},
+		{50, 1, 50, 0x04, 0x41, 0x02},
+		{40, 1, 40, 0x06, 0x81, 0x03},
+		{37, 1, 37, 0x00, 0x01, 0x04},
+		{30, 1, 30, 0x04, 0x41, 0x04},
+		{17, 1, 17, 0x18, 0xc1, 0x02},
+		{15, 1, 15, 0x18, 0x81, 0x02},
+		{12, 1, 12, 0x02, 0x01, 0x04},
+		{10, 1, 10, 0x18, 0x41, 0x02},
+		{7, 1, 7, 0x04, 0x01, 0x04},
+		{5, 1, 5, 0x06, 0x01, 0x04},
+		{3, 1, 3, 0x09, 0x01, 0x04},
+		{2, 1, 2, 0x18, 0x01, 0x02},
 	};
 
 	if (sd->sensor != SENSOR_OV772x)
@@ -956,7 +989,8 @@ static void set_frame_rate(struct gspca_dev *gspca_dev)
 		i = ARRAY_SIZE(rate_1);
 	}
 	while (--i > 0) {
-		if (sd->frame_rate >= r->fps)
+		if (sd->frame_rate_numerator == r->fps_numerator &&
+			sd->frame_rate_denominator == r->fps_denominator)
 			break;
 		r++;
 	}
@@ -965,7 +999,7 @@ static void set_frame_rate(struct gspca_dev *gspca_dev)
 	sccb_reg_write(gspca_dev, 0x0d, r->r0d);
 	ov534_reg_write(gspca_dev, 0xe5, r->re5);
 
-	PDEBUG(D_PROBE, "frame_rate: %d", r->fps);
+	PDEBUG(D_PROBE, "frame_rate: %f", r->fps);
 }
 
 static void sethue(struct gspca_dev *gspca_dev, s32 val)
@@ -1495,7 +1529,8 @@ static int sd_config(struct gspca_dev *gspca_dev,
 	cam->cam_mode = ov772x_mode;
 	cam->nmodes = ARRAY_SIZE(ov772x_mode);
 
-	sd->frame_rate = DEFAULT_FRAME_RATE;
+	sd->frame_rate_numerator = 1;
+	sd->frame_rate_denominator = DEFAULT_FRAME_RATE;
 
 	return 0;
 }
@@ -1921,8 +1956,8 @@ static void sd_get_streamparm(struct gspca_dev *gspca_dev,
 	struct sd *sd = (struct sd *) gspca_dev;
 
 	cp->capability |= V4L2_CAP_TIMEPERFRAME;
-	tpf->numerator = 1;
-	tpf->denominator = sd->frame_rate;
+	tpf->numerator = sd->frame_rate_numerator;
+	tpf->denominator = sd->frame_rate_denominator;
 }
 
 /* set stream parameters (framerate) */
@@ -1934,16 +1969,22 @@ static void sd_set_streamparm(struct gspca_dev *gspca_dev,
 	struct sd *sd = (struct sd *) gspca_dev;
 
 	if (tpf->numerator == 0 || tpf->denominator == 0)
-		sd->frame_rate = DEFAULT_FRAME_RATE;
+	{
+		sd->frame_rate_numerator = 1;
+		sd->frame_rate_denominator = DEFAULT_FRAME_RATE;
+	}
 	else
-		sd->frame_rate = tpf->denominator / tpf->numerator;
+	{
+		sd->frame_rate_numerator = tpf->numerator;
+		sd->frame_rate_denominator = tpf->denominator;
+	}
 
 	if (gspca_dev->streaming)
 		set_frame_rate(gspca_dev);
 
 	/* Return the actual framerate */
-	tpf->numerator = 1;
-	tpf->denominator = sd->frame_rate;
+	tpf->numerator = sd->frame_rate_numerator;
+	tpf->denominator = sd->frame_rate_denominator;
 }
 
 /* sub-driver description */
