@@ -40,6 +40,8 @@ extern int gspca_debug;
 struct framerates {
 	const u8 *rates;
 	int nrates;
+	const struct v4l2_fract *fract_rates;
+	int nfract_rates;
 };
 
 /* device information - set at probe time */
