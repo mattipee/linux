@@ -1445,7 +1445,6 @@ static int sd_init_controls(struct gspca_dev *gspca_dev)
 	int exposure_max;
 	int exposure_def;
 	int hflip_def;
-	int gamma;
 
 	if (sd->sensor == SENSOR_OV767x) {
 		saturation_min = 0,
@@ -1473,7 +1472,6 @@ static int sd_init_controls(struct gspca_dev *gspca_dev)
 		exposure_max = 255;
 		exposure_def = 120;
 		hflip_def = 0;
-		gamma = 32;
 	}
 
 	gspca_dev->vdev.ctrl_handler = hdl;
